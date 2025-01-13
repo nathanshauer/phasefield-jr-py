@@ -173,13 +173,15 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
             K[row + k, col + l] += Ke[nstate * i + k, nstate * j + l]
   # time.elapsed("assembly")
 
-def computeReaction(K, F, nodes, elements, mat, reaction):
+def computeReaction(K, F, nodes, elements, mat):
   assembleGlobalStiffness(K, F, elements, nodes, mat, 2)
   residual = np.dot(K, Uelas)  # F is zero
   reaction = 0.0
   for i in range(len(nodes)):
     if abs(nodes[i].y + 0.5) < 1.e-8:
       reaction += -residual[2 * i + 1]
+  return reaction
+  
 
 
 def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
@@ -446,8 +448,7 @@ def main():
     generateVTKLegacyFile(nodes, elements, filename)
 
     # Save the data
-    reaction = 0.;
-    computeReaction(Kelas, Felas, nodes, elements, material, reaction);    
+    reaction = computeReaction(Kelas, Felas, nodes, elements, material)
     u_data.append(pseudotime*imposed_displacement_y)
     force_data.append(reaction)
 
@@ -460,7 +461,7 @@ def main():
   plt.title('Force vs imposed u')
   plt.legend()
   plt.grid(True)
-  plt.savefig('force_vs_u.png')
+  plt.savefig('outputs/force_vs_u.png')
   plt.show()
 
   print("\n================> Simulation completed!")
