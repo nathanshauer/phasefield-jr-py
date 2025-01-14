@@ -23,11 +23,9 @@
 # SOFTWARE.
 
 import numpy as np
-from numpy import dot
 import time
 import matplotlib.pyplot as plt
 import os
-from scipy import sparse
 
 # =============================== DATA STRUCTURES ===============================
 # ===============================================================================
@@ -80,25 +78,41 @@ class Timer:
 
 # =============================== GLOBAL VARIABLES ==============================
 # ===============================================================================
+# This is not ideal, but since it is a simple example there is no problem
 global Uelas, Upf, D, pseudotime, basefilename, vtkextension, intrule
 Uelas = np.zeros(1)  # Vector with one position valuing zero
 Upf = np.zeros(1)  # Initialize with the correct size
 D = np.zeros((3, 3))
 pseudotime = 0.0
-basefilename = "outputs/output_ex1_"
+basefilename = "outputs/output_ex2_"
 vtkextension = ".vtk"
 intrule = create2x2QuadratureRule()  # Adopting 2x2 quadrature rule
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
 
-def createRectangularMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
-  nodes.resize((num_elements_x+1) * (num_elements_y+1), refcheck=False)
-  for j in range(num_elements_y+1):
-    for i in range(num_elements_x+1):
-      nodes[j * (num_elements_x+1) + i] = Node(i * length / num_elements_x, j * height / num_elements_y)
+def createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
+  ysize = 0.001
+  num_elements_y //= 2
+  num_elements_y_small = 8
+  num_elements_y_large = num_elements_y - num_elements_y_small
+  y_small = ysize * num_elements_y_small
+  y_large = (height / 2 - y_small) / num_elements_y_large
 
-  elements.resize(num_elements_x * num_elements_y, refcheck=False)
+  # Generate nodes
+  nodes.resize((num_elements_x+1) * (2*num_elements_y+1), refcheck=False)
+
+  for j in range(num_elements_y + 1):
+    for i in range(num_elements_x + 1):
+      x = -0.5 + i * 1.0 / num_elements_x
+      if j <= num_elements_y_small:
+        y = j * ysize
+      else:
+        y = y_small + (j - num_elements_y_small) * y_large
+      nodes[j * (num_elements_x + 1) + i] = Node(x, y)
+
+  # Generate elements
+  elements.resize(num_elements_x * 2*num_elements_y, refcheck=False)
   for j in range(num_elements_y):
     for i in range(num_elements_x):
       n1 = j * (num_elements_x + 1) + i
@@ -107,22 +121,40 @@ def createRectangularMesh(nodes, elements, num_elements_x, num_elements_y, lengt
       n4 = n3 + 1
       elements[j * num_elements_x + i] = Element([n1, n2, n4, n3])
 
-def createSparseStructure(K, elements, nodes, nstate):
-  for element in elements:
-    for i in range(4):
-      row = nstate * element.node_ids[i]
-      for j in range(4):
-        col = nstate * element.node_ids[j]
-        for k in range(nstate):
-          for l in range(nstate):            
-            K[row + k, col + l] = 1. # we need a number to create sparse structure, later we zero it out
+  # Mirror the mesh to negative y
+  original_node_count = (num_elements_x+1) * (num_elements_y+1)
+  node_map = {}
+
+  count = original_node_count;
+  for i in range(original_node_count):
+    if abs(nodes[i].y) > 1.e-8:
+      mirrored_node = Node(nodes[i].x, -nodes[i].y)
+      node_map[i] = count
+      nodes[count] = mirrored_node
+      count = count + 1
+    else:
+      node_map[i] = i
+  
+  # Generate elements for the mirrored part
+  original_element_count = num_elements_x * num_elements_y
+  count = original_element_count
+  for i in range(original_element_count):
+    mirrored_element = Element([node_map[node_id] for node_id in elements[i].node_ids])
+    mirrored_element.node_ids.reverse()
+    elements[count] = mirrored_element
+    count = count + 1
+
+def imposeInitialCrack(nodes, l):
+  crackbound = l + l / 3.0
+  xbound = 0.0 + l
+  for i in range(len(nodes)):
+    if abs(nodes[i].y) < crackbound and nodes[i].x < xbound:
+      distance = abs(nodes[i].y)
+      Upf[i] = 1.0 - (distance / (l + l / 3.0)) ** 2
 
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
   time = Timer()
-  for row in K.data:
-    for i in range(len(row)):
-      row[i] = 0.0
-  # K.fill(0)
+  K.fill(0)
   F.fill(0)
   for element in elements:
     nquadnodes = 4
@@ -138,9 +170,19 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
         col = nstate * element.node_ids[j]
         for k in range(nstate):
           for l in range(nstate):
-            index = K.rows[row+k].index(col+l)
-            K.data[row+k][index] += Ke[nstate * i + k, nstate * j + l]
+            K[row + k, col + l] += Ke[nstate * i + k, nstate * j + l]
   # time.elapsed("assembly")
+
+def computeReaction(K, F, nodes, elements, mat):
+  assembleGlobalStiffness(K, F, elements, nodes, mat, 2)
+  residual = np.dot(K, Uelas)  # F is zero
+  reaction = 0.0
+  for i in range(len(nodes)):
+    if abs(nodes[i].y + 0.5) < 1.e-8:
+      reaction += -residual[2 * i + 1]
+  return reaction
+  
+
 
 def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
   n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
@@ -194,6 +236,8 @@ def computeSigmaAtCenter(element, nodes, stress_vec):
   n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
   base = n2.x - n1.x
   height = n4.y - n1.y
+  area = base * height
+  detjac = area / 4.0
   dqsidx = 2.0 / base
   dqsidy = 2.0 / height
   J_inv = np.diag([dqsidx, dqsidy])
@@ -243,35 +287,32 @@ def createB(dN):
     B[2, 2 * i + 1] = dN[i, 0]
   return B
 
-def zeroRowAndColumnOfSparseMatrix(K, target_row):
-  K.data[target_row] = [0] * len(K.data[target_row])
-  for i in range(K.shape[0]):    
-    if target_row in K.rows[i]:
-        col_idx = K.rows[i].index(target_row)
-        K.data[i][col_idx] = 0
-
 def applyBoundaryConditions(K, F, bc_nodes):
   for bc in bc_nodes:
     row = 2 * bc.node
     xval = bc.xval * pseudotime
     yval = bc.yval * pseudotime
     if bc.type == 0:
-      F -= K[row,:].toarray().flatten() * xval
-      F -= K[row + 1,:].toarray().flatten() * yval
-      zeroRowAndColumnOfSparseMatrix(K, row)
-      zeroRowAndColumnOfSparseMatrix(K, row+1)
+      F -= K[:, row] * xval
+      F -= K[:, row + 1] * yval
+      K[row, :] = 0
+      K[:, row] = 0
+      K[row + 1, :] = 0
+      K[:, row + 1] = 0
       K[row, row] = 1.0
       K[row + 1, row + 1] = 1.0
       F[row] = xval
       F[row + 1] = yval
     elif bc.type == 1:
-      F -= K[row,:].toarray().flatten() *  xval
-      zeroRowAndColumnOfSparseMatrix(K, row)
+      F -= K[:, row] * xval
+      K[row, :] = 0
+      K[:, row] = 0
       K[row, row] = 1.0
       F[row] = xval
     elif bc.type == 2:
-      F -= K[row + 1,:].toarray().flatten() * yval
-      zeroRowAndColumnOfSparseMatrix(K, row+1)
+      F -= K[:, row + 1] * yval
+      K[row + 1, :] = 0
+      K[:, row + 1] = 0
       K[row + 1, row + 1] = 1.0
       F[row + 1] = yval
     elif bc.type == 3:
@@ -280,7 +321,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
 
 def solveSystem(K, F, U):
   time = Timer()
-  U[:] = sparse.linalg.splu(K.tocsc()).solve(F)
+  U[:] = np.linalg.solve(K, F)
   # time.elapsed("solve")
 
 def generateVTKLegacyFile(nodes, elements, filename):
@@ -314,26 +355,24 @@ def main():
     os.makedirs("outputs")
 
   simulation_time = Timer()
-  E = 30
-  nu = 0.2
-  G = 1.2e-4
-  l = 10.0
+  E = 210.0  # Young's modulus in Pascals
+  nu = 0.3  # Poisson's ratio
+  G = 2.7e-3  # Strain energy release rate
+  l = 0.005  # Length scale parameter
 
-  num_elements_x = 100
-  num_elements_y = 10
-  length = 200.0
-  height = 20.0
-  dt = 0.02
-  totaltime = 1.5
-  maxsteps = int(1e5)
-  maxiter = 600
-  stagtol = 1e-7
+  # Define mesh and time step parameters
+  num_elements_x = 50
+  num_elements_y = 30  # has to be even number
+  length = 1.0
+  height = 1.0
+  dt = 0.01
+  totaltime = 0.8
+  maxsteps = int(1e5)  # maximum number of time steps (in case using adaptive time step)
+  maxiter = 1000  # maximum number of iterations for the staggered scheme
+  stagtol = 1e-7  # tolerance to consider the staggered scheme converged
 
-  sigma_peak_at2 = np.sqrt(27.0 * E * G / (256.0 * l))
-  u_peak_at2 = 16.0 / 9.0 * sigma_peak_at2 * length / E
-  print(f"Sigma peak: {sigma_peak_at2}")
-  print(f"U peak: {u_peak_at2}")
-  imposed_displacement_x = u_peak_at2
+  # Boundary conditions
+  imposed_displacement_y = 0.01  # such that we have nucleation at step 50
 
   nodes = np.array([], dtype=object)
   elements = np.array([], dtype=object)
@@ -349,34 +388,37 @@ def main():
   D[1, 1] = factor
   D[2, 2] = factor * (1 - nu) / 2.0
 
-  createRectangularMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
+  createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
   
+  firstnode = True
   for i in range(len(nodes)):
-    if abs(nodes[i].x) < 1e-8:
-      bc_nodes = np.append(bc_nodes, BC(i, 0, 0.0, 0.0))
-    elif abs(nodes[i].x - length) < 1e-8:
-      bc_nodes = np.append(bc_nodes, BC(i, 1, imposed_displacement_x, 0.0))
+    if abs(nodes[i].y + 0.5) < 1.e-8:
+      if firstnode:
+        bc_nodes = np.append(bc_nodes, BC(i, 0, 0.0, 0.0))  # Fix x and y displacement
+        firstnode = False
+      else:
+        bc_nodes = np.append(bc_nodes, BC(i, 2, 0.0, 0.0))  # Fix y displacement
+    elif abs(nodes[i].y - 0.5) < 1.e-8:
+      bc_nodes = np.append(bc_nodes, BC(i, 2, 0.0, imposed_displacement_y))  # Impose total y displacement on the top edge
 
   nstate_elas = 2
   nstate_pf = 1
   nnodes = len(nodes)
   ndofs_elas = nstate_elas * nnodes
   ndofs_pf = nstate_pf * nnodes
-  Kelas =  sparse.lil_matrix((ndofs_elas, ndofs_elas))
-  createSparseStructure(Kelas, elements, nodes, nstate_elas)
+  Kelas = np.zeros((ndofs_elas, ndofs_elas))
   Felas = np.zeros(ndofs_elas)
   global Uelas
   Uelas = np.zeros(ndofs_elas)
 
-  Kpf = sparse.lil_matrix((ndofs_pf, ndofs_pf))
-  createSparseStructure(Kpf, elements, nodes, nstate_pf)
+  Kpf = np.zeros((ndofs_pf, ndofs_pf))
   Fpf = np.zeros(ndofs_pf)  
   global Upf
   Upf = np.zeros(ndofs_pf)
 
   # Data structure to save the data
-  time_data = []
-  stress_data = []
+  u_data = []
+  force_data = []
 
   global pseudotime
   pseudotime = 0.0
@@ -386,11 +428,13 @@ def main():
       break
     print(f"******************** Time Step {step} | Pseudo time = {pseudotime:.6f} | Time step = {dt} ********************")
     for iter in range(maxiter):
+      stagtime = Timer()
       print(f"------ Staggered Iteration {iter} ------")
+      imposeInitialCrack(nodes,l);
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:
-        residual = Kelas.tocsr().dot(Uelas) - Felas
+        residual = np.dot(Kelas, Uelas) - Felas
         norm = np.linalg.norm(residual)
         print(f"Residual Elasticity Norm: {norm:.2e}")
         if norm < stagtol:
@@ -399,28 +443,26 @@ def main():
       solveSystem(Kelas, Felas, Uelas)
       assembleGlobalStiffness(Kpf, Fpf, elements, nodes, material, nstate_pf)
       solveSystem(Kpf, Fpf, Upf)
+      # stagtime.elapsed("staggered iteration")
     if iter == maxiter:
       print(f"------> Staggered scheme did not converge in {maxiter} iterations.\nAccepting current solution and continuing")
     filename = f"{basefilename}{step}{vtkextension}"
     generateVTKLegacyFile(nodes, elements, filename)
 
-    sig = np.zeros(3)
-    computeSigmaAtCenter(elements[50], nodes, sig)
-
     # Save the data
-    time_data.append(pseudotime)
-    stress_data.append(sig[0]/sigma_peak_at2)
+    reaction = computeReaction(Kelas, Felas, nodes, elements, material)
+    u_data.append(pseudotime*imposed_displacement_y)
+    force_data.append(reaction)
 
 
   # Plot the data using matplotlib
   plt.figure()
-  plt.plot(time_data, stress_data, 'o')
-  plt.xlabel('Pseudo Time')
-  plt.ylabel('Stress/Stress_peak')
-  plt.title('Stress vs Pseudo Time')
-  plt.legend()
+  plt.plot(u_data, force_data, 'o')
+  plt.xlabel('u (mm)')
+  plt.ylabel('Force (kN)')
+  plt.title('Force vs imposed u')
   plt.grid(True)
-  plt.savefig('outputs/stress_vs_time.png')
+  plt.savefig('outputs/force_vs_u.png')
   # plt.show()
 
   print("\n================> Simulation completed!")

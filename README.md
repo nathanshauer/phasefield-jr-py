@@ -13,24 +13,26 @@ For more information about me or to get in touch, please visit my website:
 
 The code has been tested on macOS and Ubuntu. 
 
-### Installing Python, numpy and matplotlib
+### Installing Python, numpy, scipy and matplotlib
 
-To run the code, you need to have Python, numpy, and matplotlib installed on your system. Follow these steps to install them:
+To run the code, you need to have Python, numpy, scipy, and matplotlib installed on your system. Follow these steps to install them:
 
 1. **Install Python**: If you don't have Python installed, download and install it from the [official website](https://www.python.org/downloads/). You can also download python using package manager in Linux or macports/homebrew in macOS. **The code was tested using Python 3.12**
 
 2. **Install numpy and matplotlib**: Open a terminal and run the following commands to install numpy and matplotlib using pip:
 
 ```sh
-pip install numpy matplotlib
+pip install numpy scipy matplotlib
 ```
 
 3. **Verify installation**: To ensure that the packages are installed correctly, you can run the following commands in a Python shell:
 
 ```python
 import numpy
+import scipy
 import matplotlib
 print(numpy.__version__)
+print(scipy.__version__)
 print(matplotlib.__version__)
 ```
 

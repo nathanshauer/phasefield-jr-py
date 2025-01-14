@@ -23,11 +23,9 @@
 # SOFTWARE.
 
 import numpy as np
-from numpy import dot
 import time
 import matplotlib.pyplot as plt
 import os
-from scipy import sparse
 
 # =============================== DATA STRUCTURES ===============================
 # ===============================================================================
@@ -107,22 +105,9 @@ def createRectangularMesh(nodes, elements, num_elements_x, num_elements_y, lengt
       n4 = n3 + 1
       elements[j * num_elements_x + i] = Element([n1, n2, n4, n3])
 
-def createSparseStructure(K, elements, nodes, nstate):
-  for element in elements:
-    for i in range(4):
-      row = nstate * element.node_ids[i]
-      for j in range(4):
-        col = nstate * element.node_ids[j]
-        for k in range(nstate):
-          for l in range(nstate):            
-            K[row + k, col + l] = 1. # we need a number to create sparse structure, later we zero it out
-
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
   time = Timer()
-  for row in K.data:
-    for i in range(len(row)):
-      row[i] = 0.0
-  # K.fill(0)
+  K.fill(0)
   F.fill(0)
   for element in elements:
     nquadnodes = 4
@@ -138,8 +123,7 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
         col = nstate * element.node_ids[j]
         for k in range(nstate):
           for l in range(nstate):
-            index = K.rows[row+k].index(col+l)
-            K.data[row+k][index] += Ke[nstate * i + k, nstate * j + l]
+            K[row + k, col + l] += Ke[nstate * i + k, nstate * j + l]
   # time.elapsed("assembly")
 
 def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
@@ -194,6 +178,8 @@ def computeSigmaAtCenter(element, nodes, stress_vec):
   n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
   base = n2.x - n1.x
   height = n4.y - n1.y
+  area = base * height
+  detjac = area / 4.0
   dqsidx = 2.0 / base
   dqsidy = 2.0 / height
   J_inv = np.diag([dqsidx, dqsidy])
@@ -243,35 +229,32 @@ def createB(dN):
     B[2, 2 * i + 1] = dN[i, 0]
   return B
 
-def zeroRowAndColumnOfSparseMatrix(K, target_row):
-  K.data[target_row] = [0] * len(K.data[target_row])
-  for i in range(K.shape[0]):    
-    if target_row in K.rows[i]:
-        col_idx = K.rows[i].index(target_row)
-        K.data[i][col_idx] = 0
-
 def applyBoundaryConditions(K, F, bc_nodes):
   for bc in bc_nodes:
     row = 2 * bc.node
     xval = bc.xval * pseudotime
     yval = bc.yval * pseudotime
     if bc.type == 0:
-      F -= K[row,:].toarray().flatten() * xval
-      F -= K[row + 1,:].toarray().flatten() * yval
-      zeroRowAndColumnOfSparseMatrix(K, row)
-      zeroRowAndColumnOfSparseMatrix(K, row+1)
+      F -= K[:, row] * xval
+      F -= K[:, row + 1] * yval
+      K[row, :] = 0
+      K[:, row] = 0
+      K[row + 1, :] = 0
+      K[:, row + 1] = 0
       K[row, row] = 1.0
       K[row + 1, row + 1] = 1.0
       F[row] = xval
       F[row + 1] = yval
     elif bc.type == 1:
-      F -= K[row,:].toarray().flatten() *  xval
-      zeroRowAndColumnOfSparseMatrix(K, row)
+      F -= K[:, row] * xval
+      K[row, :] = 0
+      K[:, row] = 0
       K[row, row] = 1.0
       F[row] = xval
     elif bc.type == 2:
-      F -= K[row + 1,:].toarray().flatten() * yval
-      zeroRowAndColumnOfSparseMatrix(K, row+1)
+      F -= K[:, row + 1] * yval
+      K[row + 1, :] = 0
+      K[:, row + 1] = 0
       K[row + 1, row + 1] = 1.0
       F[row + 1] = yval
     elif bc.type == 3:
@@ -280,7 +263,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
 
 def solveSystem(K, F, U):
   time = Timer()
-  U[:] = sparse.linalg.splu(K.tocsc()).solve(F)
+  U[:] = np.linalg.solve(K, F)
   # time.elapsed("solve")
 
 def generateVTKLegacyFile(nodes, elements, filename):
@@ -362,14 +345,12 @@ def main():
   nnodes = len(nodes)
   ndofs_elas = nstate_elas * nnodes
   ndofs_pf = nstate_pf * nnodes
-  Kelas =  sparse.lil_matrix((ndofs_elas, ndofs_elas))
-  createSparseStructure(Kelas, elements, nodes, nstate_elas)
+  Kelas = np.zeros((ndofs_elas, ndofs_elas))
   Felas = np.zeros(ndofs_elas)
   global Uelas
   Uelas = np.zeros(ndofs_elas)
 
-  Kpf = sparse.lil_matrix((ndofs_pf, ndofs_pf))
-  createSparseStructure(Kpf, elements, nodes, nstate_pf)
+  Kpf = np.zeros((ndofs_pf, ndofs_pf))
   Fpf = np.zeros(ndofs_pf)  
   global Upf
   Upf = np.zeros(ndofs_pf)
@@ -390,7 +371,7 @@ def main():
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:
-        residual = Kelas.tocsr().dot(Uelas) - Felas
+        residual = np.dot(Kelas, Uelas) - Felas
         norm = np.linalg.norm(residual)
         print(f"Residual Elasticity Norm: {norm:.2e}")
         if norm < stagtol:
@@ -418,7 +399,6 @@ def main():
   plt.xlabel('Pseudo Time')
   plt.ylabel('Stress/Stress_peak')
   plt.title('Stress vs Pseudo Time')
-  plt.legend()
   plt.grid(True)
   plt.savefig('outputs/stress_vs_time.png')
   # plt.show()

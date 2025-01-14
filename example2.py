@@ -23,9 +23,11 @@
 # SOFTWARE.
 
 import numpy as np
+from numpy import dot
 import time
 import matplotlib.pyplot as plt
 import os
+from scipy import sparse
 
 # =============================== DATA STRUCTURES ===============================
 # ===============================================================================
@@ -144,6 +146,16 @@ def createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, he
     elements[count] = mirrored_element
     count = count + 1
 
+def createSparseStructure(K, elements, nodes, nstate):
+  for element in elements:
+    for i in range(4):
+      row = nstate * element.node_ids[i]
+      for j in range(4):
+        col = nstate * element.node_ids[j]
+        for k in range(nstate):
+          for l in range(nstate):            
+            K[row + k, col + l] = 1. # we need a number to create sparse structure, later we zero it out
+
 def imposeInitialCrack(nodes, l):
   crackbound = l + l / 3.0
   xbound = 0.0 + l
@@ -154,7 +166,10 @@ def imposeInitialCrack(nodes, l):
 
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
   time = Timer()
-  K.fill(0)
+  for row in K.data:
+    for i in range(len(row)):
+      row[i] = 0
+  # K.fill(0)
   F.fill(0)
   for element in elements:
     nquadnodes = 4
@@ -170,12 +185,13 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
         col = nstate * element.node_ids[j]
         for k in range(nstate):
           for l in range(nstate):
-            K[row + k, col + l] += Ke[nstate * i + k, nstate * j + l]
+            index = K.rows[row+k].index(col+l)
+            K.data[row+k][index] += Ke[nstate * i + k, nstate * j + l]
   # time.elapsed("assembly")
 
 def computeReaction(K, F, nodes, elements, mat):
   assembleGlobalStiffness(K, F, elements, nodes, mat, 2)
-  residual = np.dot(K, Uelas)  # F is zero
+  residual = K.dot(Uelas)  # F is zero
   reaction = 0.0
   for i in range(len(nodes)):
     if abs(nodes[i].y + 0.5) < 1.e-8:
@@ -287,32 +303,35 @@ def createB(dN):
     B[2, 2 * i + 1] = dN[i, 0]
   return B
 
+def zeroRowAndColumnOfSparseMatrix(K, target_row):
+  K.data[target_row] = [0] * len(K.data[target_row])
+  for i in range(K.shape[0]):    
+    if target_row in K.rows[i]:
+        col_idx = K.rows[i].index(target_row)
+        K.data[i][col_idx] = 0
+
 def applyBoundaryConditions(K, F, bc_nodes):
   for bc in bc_nodes:
     row = 2 * bc.node
     xval = bc.xval * pseudotime
     yval = bc.yval * pseudotime
     if bc.type == 0:
-      F -= K[:, row] * xval
-      F -= K[:, row + 1] * yval
-      K[row, :] = 0
-      K[:, row] = 0
-      K[row + 1, :] = 0
-      K[:, row + 1] = 0
+      F -= K[row,:].toarray().flatten() * xval
+      F -= K[row + 1,:].toarray().flatten() * yval
+      zeroRowAndColumnOfSparseMatrix(K, row)
+      zeroRowAndColumnOfSparseMatrix(K, row+1)
       K[row, row] = 1.0
       K[row + 1, row + 1] = 1.0
       F[row] = xval
       F[row + 1] = yval
     elif bc.type == 1:
-      F -= K[:, row] * xval
-      K[row, :] = 0
-      K[:, row] = 0
+      F -= K[row,:].toarray().flatten() *  xval
+      zeroRowAndColumnOfSparseMatrix(K, row)
       K[row, row] = 1.0
       F[row] = xval
     elif bc.type == 2:
-      F -= K[:, row + 1] * yval
-      K[row + 1, :] = 0
-      K[:, row + 1] = 0
+      F -= K[row + 1,:].toarray().flatten() * yval
+      zeroRowAndColumnOfSparseMatrix(K, row+1)
       K[row + 1, row + 1] = 1.0
       F[row + 1] = yval
     elif bc.type == 3:
@@ -321,7 +340,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
 
 def solveSystem(K, F, U):
   time = Timer()
-  U[:] = np.linalg.solve(K, F)
+  U[:] = sparse.linalg.splu(K.tocsc()).solve(F)
   # time.elapsed("solve")
 
 def generateVTKLegacyFile(nodes, elements, filename):
@@ -369,7 +388,7 @@ def main():
   totaltime = 0.8
   maxsteps = int(1e5)  # maximum number of time steps (in case using adaptive time step)
   maxiter = 1000  # maximum number of iterations for the staggered scheme
-  stagtol = 1e-8  # tolerance to consider the staggered scheme converged
+  stagtol = 1e-7  # tolerance to consider the staggered scheme converged
 
   # Boundary conditions
   imposed_displacement_y = 0.01  # such that we have nucleation at step 50
@@ -406,12 +425,14 @@ def main():
   nnodes = len(nodes)
   ndofs_elas = nstate_elas * nnodes
   ndofs_pf = nstate_pf * nnodes
-  Kelas = np.zeros((ndofs_elas, ndofs_elas))
+  Kelas =  sparse.lil_matrix((ndofs_elas, ndofs_elas))
+  createSparseStructure(Kelas, elements, nodes, nstate_elas)
   Felas = np.zeros(ndofs_elas)
   global Uelas
   Uelas = np.zeros(ndofs_elas)
 
-  Kpf = np.zeros((ndofs_pf, ndofs_pf))
+  Kpf = sparse.lil_matrix((ndofs_pf, ndofs_pf))
+  createSparseStructure(Kpf, elements, nodes, nstate_pf)
   Fpf = np.zeros(ndofs_pf)  
   global Upf
   Upf = np.zeros(ndofs_pf)
@@ -427,13 +448,14 @@ def main():
     if pseudotime > totaltime:
       break
     print(f"******************** Time Step {step} | Pseudo time = {pseudotime:.6f} | Time step = {dt} ********************")
-    for iter in range(maxiter):
+    for iter in range(maxiter):      
+      stagtime = Timer()
       print(f"------ Staggered Iteration {iter} ------")
       imposeInitialCrack(nodes,l);
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:
-        residual = np.dot(Kelas, Uelas) - Felas
+        residual = Kelas.tocsr().dot(Uelas) - Felas
         norm = np.linalg.norm(residual)
         print(f"Residual Elasticity Norm: {norm:.2e}")
         if norm < stagtol:
@@ -442,6 +464,7 @@ def main():
       solveSystem(Kelas, Felas, Uelas)
       assembleGlobalStiffness(Kpf, Fpf, elements, nodes, material, nstate_pf)
       solveSystem(Kpf, Fpf, Upf)
+      # stagtime.elapsed("staggered iteration")
     if iter == maxiter:
       print(f"------> Staggered scheme did not converge in {maxiter} iterations.\nAccepting current solution and continuing")
     filename = f"{basefilename}{step}{vtkextension}"
@@ -459,10 +482,9 @@ def main():
   plt.xlabel('u (mm)')
   plt.ylabel('Force (kN)')
   plt.title('Force vs imposed u')
-  plt.legend()
   plt.grid(True)
   plt.savefig('outputs/force_vs_u.png')
-  plt.show()
+  # plt.show()
 
   print("\n================> Simulation completed!")
   simulation_time.elapsed("complete simulation")
