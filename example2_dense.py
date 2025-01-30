@@ -29,8 +29,6 @@ import os
 
 # =============================== DATA STRUCTURES ===============================
 # ===============================================================================
-
-# Class to represent a quadrature point
 class QuadraturePoint:
   def __init__(self, xi, eta, weight):
     self.xi = xi
@@ -49,7 +47,6 @@ def create2x2QuadratureRule():
   weights = [1.0, 1.0]
   rule = [QuadraturePoint(xi, eta, w1 * w2) for xi, w1 in zip(points, weights) for eta, w2 in zip(points, weights)]
   return rule
-
 
 class Element:
   def __init__(self, node_ids):
@@ -74,7 +71,7 @@ class Timer:
   def elapsed(self, message=""):
     self.end = time.time()
     duration = self.end - self.start
-    print(f"Timer for {message} took {duration:.1f} seconds")
+    print(f"Timer for {message}: {duration:.1f} seconds")
 
 # =============================== GLOBAL VARIABLES ==============================
 # ===============================================================================
@@ -90,7 +87,6 @@ intrule = create2x2QuadratureRule()  # Adopting 2x2 quadrature rule
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
-
 def createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
   ysize = 0.001
   num_elements_y //= 2
@@ -181,8 +177,6 @@ def computeReaction(K, F, nodes, elements, mat):
     if abs(nodes[i].y + 0.5) < 1.e-8:
       reaction += -residual[2 * i + 1]
   return reaction
-  
-
 
 def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
   n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
@@ -194,7 +188,7 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
   dqsidy = 2.0 / height
   J_inv = np.diag([dqsidx, dqsidy])
 
-  if nstate == 2:
+  if nstate == 2: # compute elasticity stiffness
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
       dN_xy = J_inv.T @ dN.T
@@ -203,7 +197,7 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
       phase_field = sum(N[0, 2 * i] * Upf[element.node_ids[i]] for i in range(4))
       Ddeteriorated *= (1 - phase_field) ** 2
       Ke += B.T @ Ddeteriorated @ B * qp.weight * detjac
-  elif nstate == 1:
+  elif nstate == 1: # compute phase field stiffness
     G, l = mat.G, mat.l
     c0 = 2.0
     for qp in intrule:
@@ -348,7 +342,8 @@ def generateVTKLegacyFile(nodes, elements, filename):
     for i in range(len(nodes)):
       vtkFile.write(f"{Upf[i]}\n")
 
-
+# =============================== MAIN ==========================================
+# ===============================================================================
 def main():
   # Create folder outputs if it does not exist
   if not os.path.exists("outputs"):
@@ -453,7 +448,6 @@ def main():
     reaction = computeReaction(Kelas, Felas, nodes, elements, material)
     u_data.append(pseudotime*imposed_displacement_y)
     force_data.append(reaction)
-
 
   # Plot the data using matplotlib
   plt.figure()
