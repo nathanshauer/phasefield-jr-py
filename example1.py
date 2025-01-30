@@ -41,7 +41,7 @@ class MaterialParameters:
   def __init__(self, E, nu, G, l):
     self.E = E  # Young's modulus
     self.nu = nu  # Poisson's ratio
-    self.G = G  # Strain energy release rate
+    self.G = G  # Critical strain energy release rate
     self.l = l  # Length scale parameter
 
 def create2x2QuadratureRule():

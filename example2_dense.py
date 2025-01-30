@@ -39,7 +39,7 @@ class MaterialParameters:
   def __init__(self, E, nu, G, l):
     self.E = E  # Young's modulus
     self.nu = nu  # Poisson's ratio
-    self.G = G  # Strain energy release rate
+    self.G = G  # Critical strain energy release rate
     self.l = l  # Length scale parameter
 
 def create2x2QuadratureRule():
@@ -87,25 +87,36 @@ intrule = create2x2QuadratureRule()  # Adopting 2x2 quadrature rule
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
-def createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
-  ysize = 0.001
+def createDoubleNodeMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
+  xsize = ysize = 0.001
   num_elements_y //= 2
+  num_elements_x_small = 16
   num_elements_y_small = 8
   num_elements_y_large = num_elements_y - num_elements_y_small
+  num_elements_x_large = num_elements_x - num_elements_x_small
   y_small = ysize * num_elements_y_small
-  y_large = (height / 2 - y_small) / num_elements_y_large
+  y_largeel_size = (height / 2 - y_small) / num_elements_y_large
+  x_small = xsize * num_elements_x_small
+  x_largeel_size = (length - x_small) / num_elements_x_large
 
   # Generate nodes
-  nodes.resize((num_elements_x+1) * (2*num_elements_y+1), refcheck=False)
+  if num_elements_x % 2 != 0:
+    raise ValueError("num_elements_x must be an even number")
+  ndoublenodes = int(num_elements_x_large / 2 + num_elements_x_small / 2)
+  nodes.resize((num_elements_x+1) * (2*num_elements_y+1) + ndoublenodes, refcheck=False)
 
   for j in range(num_elements_y + 1):
+    xnow = -0.5
     for i in range(num_elements_x + 1):
-      x = -0.5 + i * 1.0 / num_elements_x
       if j <= num_elements_y_small:
         y = j * ysize
       else:
-        y = y_small + (j - num_elements_y_small) * y_large
-      nodes[j * (num_elements_x + 1) + i] = Node(x, y)
+        y = y_small + (j - num_elements_y_small) * y_largeel_size
+      nodes[j * (num_elements_x + 1) + i] = Node(xnow, y)
+      if i < num_elements_x_large/2 or i > num_elements_x_large/2 + num_elements_x_small-1:
+        xnow += x_largeel_size
+      else:
+        xnow += xsize      
 
   # Generate elements
   elements.resize(num_elements_x * 2*num_elements_y, refcheck=False)
@@ -123,13 +134,19 @@ def createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, he
 
   count = original_node_count;
   for i in range(original_node_count):
-    if abs(nodes[i].y) > 1.e-8:
+    if abs(nodes[i].y) > 1.e-8:      
       mirrored_node = Node(nodes[i].x, -nodes[i].y)
       node_map[i] = count
       nodes[count] = mirrored_node
       count = count + 1
     else:
-      node_map[i] = i
+      if nodes[i].x < -1.e-8: # nodes until the tip
+        duplicated_node = Node(nodes[i].x, nodes[i].y)
+        node_map[i] = count
+        nodes[count] = duplicated_node
+        count = count + 1
+      else:
+        node_map[i] = i
   
   # Generate elements for the mirrored part
   original_element_count = num_elements_x * num_elements_y
@@ -138,15 +155,7 @@ def createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, he
     mirrored_element = Element([node_map[node_id] for node_id in elements[i].node_ids])
     mirrored_element.node_ids.reverse()
     elements[count] = mirrored_element
-    count = count + 1
-
-def imposeInitialCrack(nodes, l):
-  crackbound = l + l / 3.0
-  xbound = 0.0 + l
-  for i in range(len(nodes)):
-    if abs(nodes[i].y) < crackbound and nodes[i].x < xbound:
-      distance = abs(nodes[i].y)
-      Upf[i] = 1.0 - (distance / (l + l / 3.0)) ** 2
+    count = count + 1 
 
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
   time = Timer()
@@ -356,8 +365,8 @@ def main():
   l = 0.005  # Length scale parameter
 
   # Define mesh and time step parameters
-  num_elements_x = 50
-  num_elements_y = 30  # has to be even number
+  num_elements_x = 50 # has to be even number
+  num_elements_y = 30 # has to be even number
   length = 1.0
   height = 1.0
   dt = 0.01
@@ -383,7 +392,7 @@ def main():
   D[1, 1] = factor
   D[2, 2] = factor * (1 - nu) / 2.0
 
-  createGradedMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
+  createDoubleNodeMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
   
   firstnode = True
   for i in range(len(nodes)):
@@ -425,7 +434,6 @@ def main():
     for iter in range(maxiter):
       stagtime = Timer()
       print(f"------ Staggered Iteration {iter} ------")
-      imposeInitialCrack(nodes,l);
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:

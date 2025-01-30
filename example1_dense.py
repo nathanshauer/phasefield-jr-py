@@ -383,7 +383,7 @@ def main():
     generateVTKLegacyFile(nodes, elements, filename)
 
     sig = np.zeros(3)
-    computeSigmaAtCenter(elements[50], nodes, sig)
+    computeSigmaAtCenter(elements[50], nodes, sig) # element 50 is in the middle of the domain
 
     # Save the data
     time_data.append(pseudotime)
