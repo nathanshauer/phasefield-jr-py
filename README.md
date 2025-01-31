@@ -15,7 +15,7 @@ The code has been tested on macOS and Ubuntu.
 
 ### Installing Python, numpy, scipy and matplotlib
 
-To run the code, you need to have Python, numpy, scipy, and matplotlib installed on your system. Follow these steps to install them:
+To run the code, you need to have Python, numpy and matplotlib installed on your system. Scipy is also needed if using the examples that adopt sparse matrices (`example1.py` and `example2.py`). Follow these steps to install them:
 
 1. **Install Python**: If you don't have Python installed, download and install it from the [official website](https://www.python.org/downloads/). You can also download python using package manager in Linux or macports/homebrew in macOS. **The code was tested using Python 3.12**
 
@@ -40,7 +40,7 @@ If the versions are printed without any errors, the installation was successful.
 
 ## Running the code
 
-There are two examples called `example1.py` and `example2.py`:
+There are two examples called `example1.py` and `example2.py`. These examples adopt sparse matrices for the global stiffness which is more efficient but leads to some additional complications. Versions of these examples using full (dense) matrices are available in `example1_dense.py` and `example2_dense.py`
 
 1. **example1.py**: This example simulates a bar under tension using the phase field method. To run this example, open a terminal, navigate to the project directory, and execute the following command:
 
@@ -68,7 +68,7 @@ To visualize the output in ParaView using VTK files, follow these steps:
 4. **Load VTK files**:
   - Click on `File` > `Open`.
   - Navigate to the `output` directory of the project.
-  - Select the VTK file you want to visualize (e.g., `example1.vtk` or `example2.vtk`).
+  - Select the VTK file you want to visualize (e.g., `output_ex1_#.vtk` or `output_ex2_#.vtk`).
   - Click `Apply` to load the data.
 
 5. **Visualize the data**: Use the various visualization tools in ParaView to explore the simulation results. You can adjust the display properties, apply filters, and create animations to better understand the phase field analysis.
