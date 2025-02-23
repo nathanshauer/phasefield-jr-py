@@ -79,8 +79,8 @@ class Timer:
 global Uelas, Upf, D, pseudotime, basefilename, vtkextension, intrule
 Uelas = np.zeros(1)  # Vector with one position valuing zero
 Upf = np.zeros(1)  # Initialize with the correct size
-D = np.zeros((3, 3))
-pseudotime = 0.0
+D = np.zeros((3, 3)) # Assuming all elements have same materials
+pseudotime = 0.0 # Is updated to impose displacement gradually
 basefilename = "outputs/output_ex2_"
 vtkextension = ".vtk"
 intrule = create2x2QuadratureRule()  # Adopting 2x2 quadrature rule
@@ -233,32 +233,6 @@ def calculateSigmaDotEps(element, dN):
   stress_vec = D @ strain_vec
   sigmaDotEps = stress_vec @ strain_vec
   return sigmaDotEps
-
-def computeSigmaAtCenter(element, nodes, stress_vec):
-  qsi, eta = 0.0, 0.0
-  n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
-  base = n2.x - n1.x
-  height = n4.y - n1.y
-  area = base * height
-  detjac = area / 4.0
-  dqsidx = 2.0 / base
-  dqsidy = 2.0 / height
-  J_inv = np.diag([dqsidx, dqsidy])
-  N, dN = shapeFunctions(qsi, eta, 2)
-  dN_xy = J_inv.T @ dN.T
-  dU = np.zeros((2, 2))
-  for i in range(4):
-    index = 2 * element.node_ids[i]
-    dU[0, 0] += dN_xy[0, i] * Uelas[index]
-    dU[0, 1] += dN_xy[1, i] * Uelas[index]
-    dU[1, 0] += dN_xy[0, i] * Uelas[index + 1]
-    dU[1, 1] += dN_xy[1, i] * Uelas[index + 1]
-  strain = 0.5 * (dU + dU.T)
-  strain_vec = np.array([strain[0, 0], strain[1, 1], 2 * strain[0, 1]])
-  phase_field = sum(N[0, 2 * i] * Upf[element.node_ids[i]] for i in range(4))
-  g = (1.0 - phase_field) ** 2
-  stress_vec[:] = g * D @ strain_vec
-  return stress_vec
 
 def shapeFunctions(qsi, eta, nstate):
   phi1qsi = (1 + qsi) / 2.0
@@ -432,7 +406,6 @@ def main():
       break
     print(f"******************** Time Step {step} | Pseudo time = {pseudotime:.6f} | Time step = {dt} ********************")
     for iter in range(maxiter):
-      stagtime = Timer()
       print(f"------ Staggered Iteration {iter} ------")
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
@@ -446,7 +419,6 @@ def main():
       solveSystem(Kelas, Felas, Uelas)
       assembleGlobalStiffness(Kpf, Fpf, elements, nodes, material, nstate_pf)
       solveSystem(Kpf, Fpf, Upf)
-      # stagtime.elapsed("staggered iteration")
     if iter == maxiter:
       print(f"------> Staggered scheme did not converge in {maxiter} iterations.\nAccepting current solution and continuing")
     filename = f"{basefilename}{step}{vtkextension}"

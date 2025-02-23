@@ -75,11 +75,12 @@ class Timer:
 
 # =============================== GLOBAL VARIABLES ==============================
 # ===============================================================================
+# This is not ideal, but since it is a simple example there is no problem
 global Uelas, Upf, D, pseudotime, basefilename, vtkextension, intrule
 Uelas = np.zeros(1)  # Vector with one position valuing zero
 Upf = np.zeros(1)  # Initialize with the correct size
-D = np.zeros((3, 3))
-pseudotime = 0.0
+D = np.zeros((3, 3)) # Assuming all elements have same materials
+pseudotime = 0.0 # Is updated to impose displacement gradually
 basefilename = "outputs/output_ex1_"
 vtkextension = ".vtk"
 intrule = create2x2QuadratureRule()  # Adopting 2x2 quadrature rule
