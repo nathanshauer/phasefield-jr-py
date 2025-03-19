@@ -40,21 +40,31 @@ If the versions are printed without any errors, the installation was successful.
 
 ## Running the code
 
-There are two examples called `example1.py` and `example2.py`. These examples adopt sparse matrices for the global stiffness which is more efficient but leads to some additional complications. Versions of these examples using full (dense) matrices are available in `example1_dense.py` and `example2_dense.py`
+This repository includes two sets of examples: one using sparse matrices and another using dense matrices for the global stiffness matrix. 
 
-1. **example1.py**: This example simulates a bar under tension using the phase field method. To run this example, open a terminal, navigate to the project directory, and execute the following command:
+1. **Sparse Matrix Examples**: 
+  - `example1_sparse.py`: Simulates a bar under tension using sparse matrices for improved scalability.
+  - `example2_sparse.py`: Simulates a single-edge notch plate under tension using sparse matrices.
+
+  Sparse matrices are more memory-efficient and computationally scalable, especially for large problems. However, they introduce additional complexities in data structure management.
+
+2. **Dense Matrix Examples**:
+  - `example1_dense.py`: A dense matrix version of the bar under tension simulation.
+  - `example2_dense.py`: A dense matrix version of the single-edge notch plate simulation.
+
+  Dense matrices are easier to understand and implement, making these examples more suitable for educational purposes or smaller problems.
+
+Both versions produce comparable results.
+
+To run any example, open a terminal, navigate to the project directory, and execute the following command:
 
 ```sh
-python example1.py
+python <example_file>.py
 ```
 
-2. **example2.py**: This example simulates a single-edge notch plate under tension. To run this example, open a terminal, navigate to the project directory, and execute the following command:
+Replace `<example_file>` with the desired example script (e.g., `example1_sparse.py` or `example2_dense.py`).
 
-```sh
-python example2.py
-```
-
-Both examples will generate output files in the `output` directory, which can be visualized using ParaView as described in the "Output in Paraview using vtk files" section.
+Both examples 1 and 2 will generate output files in the `output` directory, which can be visualized using ParaView as described in the "Output in Paraview using vtk files" section.
 
 ## Output in Paraview using vtk files
 To visualize the output in ParaView using VTK files, follow these steps:
@@ -77,15 +87,14 @@ To visualize the output in ParaView using VTK files, follow these steps:
 
 The project includes quantitative analysis of the simulation results directly within the Python scripts. At the end of each run, the analysis is performed, and the results are saved in the `output` directory.
 
-1. **Analysis of Bar under Tension (example1.py)**
-  - This analysis is performed at the end of the `example1.py` simulation.
+1. **Analysis of Bar under Tension (example1)**
+  - This analysis is performed at the end of the `example1` simulation.
   - The script generates a plot of `sigma/sigma_peak x time`, where `sigma_peak` is calculated analytically.
   - The plot is saved as `example1_timexsigma.png` in the `output` directory.
 
-2. **Analysis of Single-edge Notch Plate under Tension (example2.py)**
-  - This analysis is performed at the end of the `example2.py` simulation.
+2. **Analysis of Single-edge Notch Plate under Tension (example2)**
+  - This analysis is performed at the end of the `example2` simulation.
   - The script generates a plot of `Reaction force x imposed displacement`.
   - The plot is saved as `example2_pdelta.png` in the `output` directory.
 
 To view the analysis results, navigate to the `output` directory after running the simulations and open the respective PNG files.
-
