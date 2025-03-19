@@ -132,7 +132,6 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
   dqsidx = 2.0 / base
   dqsidy = 2.0 / height
   J_inv = np.diag([dqsidx, dqsidy])
-
   if nstate == 2: # compute elasticity stiffness
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
@@ -147,12 +146,10 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
     c0 = 2.0
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
-      dN_xy = J_inv.T @ dN.T
+      dN_xy = J_inv.T @ dN.T # Same as B_phi
       sigmaDotEps = calculateSigmaDotEps(element, dN_xy)
-      for i in range(4):
-        Fe[i] += detjac * qp.weight * 0.5 * sigmaDotEps * N[0, i]
-        for j in range(4):
-          Ke[i, j] += detjac * qp.weight * (G * l / c0 * (dN_xy[0, i] * dN_xy[0, j] + dN_xy[1, i] * dN_xy[1, j]) + (G / (l * c0) + 0.5 * sigmaDotEps) * N[0, j] * N[0, i])
+      Ke += detjac * qp.weight * (G * l / c0 * (dN_xy.T @ dN_xy) + (G / (l * c0) + 0.5 * sigmaDotEps) * N.T @ N)
+      Fe += detjac * qp.weight * 0.5 * sigmaDotEps * N.flatten()
   else:
     raise Exception("Invalid state")
 
@@ -176,7 +173,6 @@ def computeSigmaAtCenter(element, nodes, stress_vec):
   base = n2.x - n1.x
   height = n4.y - n1.y
   area = base * height
-  detjac = area / 4.0
   dqsidx = 2.0 / base
   dqsidy = 2.0 / height
   J_inv = np.diag([dqsidx, dqsidy])
@@ -202,7 +198,7 @@ def shapeFunctions(qsi, eta, nstate):
   phi1eta = (1 + eta) / 2.0
   phi0qsi = (1 - qsi) / 2.0
   shape = np.array([phi0qsi * phi0eta, phi1qsi * phi0eta, phi1qsi * phi1eta, phi0qsi * phi1eta])
-  N = np.zeros((2, nstate * 4))
+  N = np.zeros((nstate, nstate * 4))
   if nstate == 1:
     N[0, :4] = shape
   else:
