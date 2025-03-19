@@ -172,7 +172,6 @@ def computeSigmaAtCenter(element, nodes, stress_vec):
   n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
   base = n2.x - n1.x
   height = n4.y - n1.y
-  area = base * height
   dqsidx = 2.0 / base
   dqsidy = 2.0 / height
   J_inv = np.diag([dqsidx, dqsidy])
