@@ -77,13 +77,13 @@ class Timer:
 # ===============================================================================
 # This is not ideal, but since it is a simple example there is no problem
 global Uelas, Upf, D, pseudotime, basefilename, vtkextension, intrule
-Uelas = np.zeros(1)  # Vector with one position valuing zero
-Upf = np.zeros(1)  # Initialize with the correct size
-D = np.zeros((3, 3)) # Assuming all elements have same materials
-pseudotime = 0.0 # Is updated to impose displacement gradually
-basefilename = "outputs/output_ex2_"
-vtkextension = ".vtk"
-intrule = create2x2QuadratureRule()  # Adopting 2x2 quadrature rule
+Uelas = np.zeros(1) # Global vector with nodal values for the displacement approximation
+Upf = np.zeros(1) # Global vector with nodal values for the phase field approximation
+D = np.zeros((3, 3)) # Constitutive matrix of the 2D elasticity problem. 
+pseudotime = 0.0 # Pseudo time used to control incremental displacement/load steps
+basefilename = "outputs/output_ex2_" # Base name for the Paraview output files
+vtkextension = ".vtk" # Extension for the Paraview output files
+intrule = create2x2QuadratureRule() # Integration rule. Adopting 2x2 quadrature rule
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
@@ -194,14 +194,14 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
   area = base * height
   detjac = area / 4.0
   dqsidx = 2.0 / base
-  dqsidy = 2.0 / height
-  J_inv = np.diag([dqsidx, dqsidy])
+  detady = 2.0 / height
+  J_inv = np.diag([dqsidx, detady])
 
   if nstate == 2: # compute elasticity stiffness
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
-      dN_xy = J_inv.T @ dN.T
-      B = createB(dN_xy.T)
+      dN_xy = J_inv.T @ dN
+      B = createB(dN_xy)
       Ddeteriorated = D.copy()
       phase_field = sum(N[0, 2 * i] * Upf[element.node_ids[i]] for i in range(4))
       Ddeteriorated *= (1 - phase_field) ** 2
@@ -211,7 +211,7 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
     c0 = 2.0
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
-      dN_xy = J_inv.T @ dN.T # Same as B_phi
+      dN_xy = J_inv.T @ dN # Same as B_phi
       sigmaDotEps = calculateSigmaDotEps(element, dN_xy)
       Ke += detjac * qp.weight * (G * l / c0 * (dN_xy.T @ dN_xy) + (G / (l * c0) + 0.5 * sigmaDotEps) * N.T @ N)
       Fe += detjac * qp.weight * 0.5 * sigmaDotEps * N.flatten()
@@ -246,20 +246,18 @@ def shapeFunctions(qsi, eta, nstate):
       N[0, 2 * i] = shape[i]
       N[1, 2 * i + 1] = shape[i]
   dN = np.array([
-    [0.25 * (-1 + eta), 0.25 * (-1 + qsi)],
-    [0.25 * (1 - eta), 0.25 * (-1 - qsi)],
-    [0.25 * (1 + eta), 0.25 * (1 + qsi)],
-    [0.25 * (-1 - eta), 0.25 * (1 - qsi)]
+    [0.25 * (-1 + eta), 0.25 * (1 - eta), 0.25 * (1 + eta), 0.25 * (-1 - eta)],
+    [0.25 * (-1 + qsi), 0.25 * (-1 - qsi), 0.25 * (1 + qsi), 0.25 * (1 - qsi)]
   ])
   return N, dN
 
 def createB(dN):
   B = np.zeros((3, 8))
   for i in range(4):
-    B[0, 2 * i] = dN[i, 0]
-    B[1, 2 * i + 1] = dN[i, 1]
-    B[2, 2 * i] = dN[i, 1]
-    B[2, 2 * i + 1] = dN[i, 0]
+    B[0, 2 * i] = dN[0, i]
+    B[1, 2 * i + 1] = dN[1, i]
+    B[2, 2 * i] = dN[1, i]
+    B[2, 2 * i + 1] = dN[0, i]
   return B
 
 def applyBoundaryConditions(K, F, bc_nodes):
