@@ -175,16 +175,16 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
       row[i] = 0.0
   F.fill(0)
   for element in elements:
-    nquadnodes = 4
-    ndofel = nstate * nquadnodes
+    nnodesel = len(element.node_ids)
+    ndofel = nstate * nnodesel
     Ke = np.zeros((ndofel, ndofel))
     Fe = np.zeros(ndofel)
     computeElementStiffness(Ke, Fe, nodes, element, mat, nstate)
-    for i in range(nquadnodes):
+    for i in range(nnodesel):
       row = nstate * element.node_ids[i]
       for k in range(nstate):
         F[row + k] += Fe[nstate * i + k]
-      for j in range(nquadnodes):
+      for j in range(nnodesel):
         col = nstate * element.node_ids[j]
         for k in range(nstate):
           for l in range(nstate):
@@ -202,6 +202,7 @@ def computeReaction(K, F, nodes, elements, mat):
   return reaction
   
 def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
+  nnodes = len(element.node_ids)
   n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
   base = n2.x - n1.x
   height = n4.y - n1.y
@@ -216,8 +217,8 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
       dN_xy = J_inv.T @ dN
       B = createB(dN_xy)
+      phase_field = sum(N[0, nstate * i] * Upf[element.node_ids[i]] for i in range(nnodes))
       Ddeteriorated = D.copy()
-      phase_field = sum(N[0, 2 * i] * Upf[element.node_ids[i]] for i in range(4))
       Ddeteriorated *= (1 - phase_field) ** 2
       Ke += B.T @ Ddeteriorated @ B * qp.weight * detjac
   elif nstate == 1: # compute phase field stiffness
@@ -230,7 +231,7 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
       Ke += detjac * qp.weight * (G * l / c0 * (dN_xy.T @ dN_xy) + (G / (l * c0) + 0.5 * sigmaDotEps) * N.T @ N)
       Fe += detjac * qp.weight * 0.5 * sigmaDotEps * N.flatten()
   else:
-    raise Exception("Invalid state")
+    raise Exception("Invalid nstate")
 
 def calculateSigmaDotEps(element, dN):
   dU = np.zeros((2, 2))
