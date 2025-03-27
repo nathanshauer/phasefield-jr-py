@@ -38,11 +38,11 @@ class QuadraturePoint:
     self.weight = weight
 
 class MaterialParameters:
-  def __init__(self, E, nu, G, l):
+  def __init__(self, E, nu, Gc, l0):
     self.E = E  # Young's modulus
     self.nu = nu  # Poisson's ratio
-    self.G = G  # Critical strain energy release rate
-    self.l = l  # Length scale parameter
+    self.Gc = Gc  # Critical strain energy release rate
+    self.l0 = l0  # Length scale parameter
 
 def create2x2QuadratureRule():
   points = [-1.0 / np.sqrt(3.0), 1.0 / np.sqrt(3.0)]
@@ -62,7 +62,7 @@ class Node:
 class BC:
   def __init__(self, node, bc_type, xval, yval):
     self.node = node
-    self.type = bc_type  # 0 dirichlet in x and y, 1 dirichlet in x, 2 dirichlet in y, 3 neumann
+    self.bctype = bc_type  # 0 dirichlet in x and y, 1 dirichlet in x, 2 dirichlet in y, 3 neumann
     self.xval = xval
     self.yval = yval
 
@@ -222,13 +222,13 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
       Ddeteriorated *= (1 - phase_field) ** 2
       Ke += B.T @ Ddeteriorated @ B * qp.weight * detjac
   elif nstate == 1: # compute phase field stiffness
-    G, l = mat.G, mat.l
+    Gc, l0 = mat.Gc, mat.l0
     c0 = 2.0
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
       dN_xy = J_inv.T @ dN # Same as B_phi
       sigmaDotEps = calculateSigmaDotEps(element, dN_xy)
-      Ke += detjac * qp.weight * (G * l / c0 * (dN_xy.T @ dN_xy) + (G / (l * c0) + 0.5 * sigmaDotEps) * N.T @ N)
+      Ke += detjac * qp.weight * (Gc * l0 / c0 * (dN_xy.T @ dN_xy) + (Gc / (l0 * c0) + 0.5 * sigmaDotEps) * N.T @ N)
       Fe += detjac * qp.weight * 0.5 * sigmaDotEps * N.flatten()
   else:
     raise Exception("Invalid nstate")
@@ -287,7 +287,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
     row = 2 * bc.node
     xval = bc.xval * pseudotime
     yval = bc.yval * pseudotime
-    if bc.type == 0:
+    if bc.bctype == 0:
       F -= K[row,:].toarray().flatten() * xval
       F -= K[row + 1,:].toarray().flatten() * yval
       zeroRowAndColumnOfSparseMatrix(K, row)
@@ -296,17 +296,17 @@ def applyBoundaryConditions(K, F, bc_nodes):
       K[row + 1, row + 1] = 1.0
       F[row] = xval
       F[row + 1] = yval
-    elif bc.type == 1:
+    elif bc.bctype == 1:
       F -= K[row,:].toarray().flatten() *  xval
       zeroRowAndColumnOfSparseMatrix(K, row)
       K[row, row] = 1.0
       F[row] = xval
-    elif bc.type == 2:
+    elif bc.bctype == 2:
       F -= K[row + 1,:].toarray().flatten() * yval
       zeroRowAndColumnOfSparseMatrix(K, row+1)
       K[row + 1, row + 1] = 1.0
       F[row + 1] = yval
-    elif bc.type == 3:
+    elif bc.bctype == 3:
       F[row] += xval
       F[row + 1] += yval
 
@@ -349,8 +349,8 @@ def main():
   simulation_time = Timer()
   E = 210.0  # Young's modulus in Pascals
   nu = 0.3  # Poisson's ratio
-  G = 2.7e-3  # Strain energy release rate
-  l = 0.005  # Length scale parameter
+  Gc = 2.7e-3  # Strain energy release rate
+  l0 = 0.005  # Length scale parameter
 
   # Define mesh and time step parameters
   num_elements_x = 50 # has to be even number
@@ -370,7 +370,7 @@ def main():
   elements = np.array([], dtype=object)
   bc_nodes = np.array([], dtype=object)
 
-  material = MaterialParameters(E, nu, G, l)
+  material = MaterialParameters(E, nu, Gc, l0)
   factor = E / (1 - nu * nu)
   global D
   D = np.zeros((3, 3))
