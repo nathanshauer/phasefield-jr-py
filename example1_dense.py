@@ -305,7 +305,7 @@ def main():
   maxiter = 600
   stagtol = 1e-7
 
-  sigma_peak_at2 = np.sqrt(27.0 * E * G / (256.0 * l))
+  sigma_peak_at2 = np.sqrt(27.0 * E * Gc / (256.0 * l0))
   u_peak_at2 = 16.0 / 9.0 * sigma_peak_at2 * length / E
   print(f"Sigma peak: {sigma_peak_at2}")
   print(f"U peak: {u_peak_at2}")
