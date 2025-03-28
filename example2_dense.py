@@ -208,13 +208,13 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
       Ddeteriorated *= (1 - phase_field) ** 2
       Ke += B.T @ Ddeteriorated @ B * qp.weight * detjac
   elif nstate == 1: # compute phase field stiffness
-    G, l = mat.G, mat.l
+    Gc, l0 = mat.Gc, mat.l0
     c0 = 2.0
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
       dN_xy = J_inv.T @ dN # Same as B_phi
       sigmaDotEps = calculateSigmaDotEps(element, dN_xy)
-      Ke += detjac * qp.weight * (G * l / c0 * (dN_xy.T @ dN_xy) + (G / (l * c0) + 0.5 * sigmaDotEps) * N.T @ N)
+      Ke += detjac * qp.weight * (Gc * l0 / c0 * (dN_xy.T @ dN_xy) + (Gc / (l0 * c0) + 0.5 * sigmaDotEps) * N.T @ N)
       Fe += detjac * qp.weight * 0.5 * sigmaDotEps * N.flatten()
   else:
     raise Exception("Invalid nstate")
@@ -266,7 +266,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
     row = 2 * bc.node
     xval = bc.xval * pseudotime
     yval = bc.yval * pseudotime
-    if bc.bctype == 0:
+    if bc.bctype == 0: # displacement in x and y
       F -= K[:, row] * xval
       F -= K[:, row + 1] * yval
       K[row, :] = 0
@@ -277,19 +277,19 @@ def applyBoundaryConditions(K, F, bc_nodes):
       K[row + 1, row + 1] = 1.0
       F[row] = xval
       F[row + 1] = yval
-    elif bc.bctype == 1:
+    elif bc.bctype == 1: # displacement in x
       F -= K[:, row] * xval
       K[row, :] = 0
       K[:, row] = 0
       K[row, row] = 1.0
       F[row] = xval
-    elif bc.bctype == 2:
+    elif bc.bctype == 2: # displacement in y
       F -= K[:, row + 1] * yval
       K[row + 1, :] = 0
       K[:, row + 1] = 0
       K[row + 1, row + 1] = 1.0
       F[row + 1] = yval
-    elif bc.bctype == 3:
+    elif bc.bctype == 3: # nodal load in x and y
       F[row] += xval
       F[row + 1] += yval
 

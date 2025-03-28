@@ -226,7 +226,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
     row = 2 * bc.node
     xval = bc.xval * pseudotime
     yval = bc.yval * pseudotime
-    if bc.bctype == 0:
+    if bc.bctype == 0: # displacement in x and y
       F -= K[:, row] * xval
       F -= K[:, row + 1] * yval
       K[row, :] = 0
@@ -237,19 +237,19 @@ def applyBoundaryConditions(K, F, bc_nodes):
       K[row + 1, row + 1] = 1.0
       F[row] = xval
       F[row + 1] = yval
-    elif bc.bctype == 1:
+    elif bc.bctype == 1: # displacement in x
       F -= K[:, row] * xval
       K[row, :] = 0
       K[:, row] = 0
       K[row, row] = 1.0
       F[row] = xval
-    elif bc.bctype == 2:
+    elif bc.bctype == 2: # displacement in y
       F -= K[:, row + 1] * yval
       K[row + 1, :] = 0
       K[:, row + 1] = 0
       K[row + 1, row + 1] = 1.0
       F[row + 1] = yval
-    elif bc.bctype == 3:
+    elif bc.bctype == 3: # nodal load in x and y
       F[row] += xval
       F[row + 1] += yval
 
