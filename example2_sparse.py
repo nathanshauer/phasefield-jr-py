@@ -361,7 +361,7 @@ def main():
   totaltime = 0.8
   maxsteps = int(1e5)  # maximum number of time steps (in case using adaptive time step)
   maxiter = 1000  # maximum number of iterations for the staggered scheme
-  stagtol = 1e-7  # tolerance to consider the staggered scheme converged
+  stagtol = 1e-5  # tolerance to consider the staggered scheme converged
 
   # Boundary conditions
   imposed_displacement_y = 0.01  # such that we have nucleation at step 50

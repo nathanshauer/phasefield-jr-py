@@ -303,7 +303,7 @@ def main():
   totaltime = 1.5
   maxsteps = int(1e5)
   maxiter = 600
-  stagtol = 1e-7
+  stagtol = 1e-6
 
   sigma_peak_at2 = np.sqrt(27.0 * E * Gc / (256.0 * l0))
   u_peak_at2 = 16.0 / 9.0 * sigma_peak_at2 * length / E
@@ -364,7 +364,7 @@ def main():
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:
-        residual = np.dot(Kelas, Uelas) - Felas
+        residual = Kelas @ Uelas - Felas
         norm = np.linalg.norm(residual)
         print(f"Residual Elasticity Norm: {norm:.2e}")
         if norm < stagtol:
