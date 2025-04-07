@@ -180,7 +180,7 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
 
 def computeReaction(K, F, nodes, elements, mat):
   assembleGlobalStiffness(K, F, elements, nodes, mat, 2)
-  residual = np.dot(K, Uelas)  # F is zero
+  residual = K @ Uelas # F is zero
   reaction = 0.0
   for i in range(len(nodes)):
     if abs(nodes[i].y + 0.5) < 1.e-8:
