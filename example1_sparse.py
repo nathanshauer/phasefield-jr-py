@@ -116,7 +116,7 @@ def createSparseStructure(K, elements, nodes, nstate):
 
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
   time = Timer()
-  for row in K.data:
+  for row in K.data: # zero out the stiffness sparse matrix
     for i in range(len(row)):
       row[i] = 0.0
   F.fill(0)
@@ -356,7 +356,7 @@ def main():
   nnodes = len(nodes)
   ndofs_elas = nstate_elas * nnodes
   ndofs_pf = nstate_pf * nnodes
-  Kelas =  sparse.lil_matrix((ndofs_elas, ndofs_elas))
+  Kelas = sparse.lil_matrix((ndofs_elas, ndofs_elas))
   createSparseStructure(Kelas, elements, nodes, nstate_elas)
   Felas = np.zeros(ndofs_elas)
   global Uelas
@@ -384,7 +384,7 @@ def main():
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:
-        residual = Kelas.tocsr().dot(Uelas) - Felas
+        residual = Kelas.tocsr() @ Uelas - Felas
         norm = np.linalg.norm(residual)
         print(f"Residual Elasticity Norm: {norm:.2e}")
         if norm < stagtol:

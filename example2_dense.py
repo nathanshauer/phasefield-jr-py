@@ -88,7 +88,7 @@ intrule = create2x2QuadratureRule() # Integration rule. Adopting 2x2 quadrature 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
 def createDoubleNodeMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
-  xsize = ysize = 0.001
+  xsize = ysize = 0.00125
   num_elements_y //= 2
   num_elements_x_small = 16
   num_elements_y_small = 8
@@ -283,6 +283,7 @@ def applyBoundaryConditions(K, F, bc_nodes):
       K[:, row] = 0
       K[row, row] = 1.0
       F[row] = xval
+      
     elif bc.bctype == 2: # displacement in y
       F -= K[:, row + 1] * yval
       K[row + 1, :] = 0
@@ -333,7 +334,7 @@ def main():
   E = 210.0  # Young's modulus in Pascals
   nu = 0.3  # Poisson's ratio
   Gc = 2.7e-3  # Strain energy release rate
-  l0 = 0.005  # Length scale parameter
+  l0 = 0.0075  # Length scale parameter
 
   # Define mesh and time step parameters
   num_elements_x = 50 # has to be even number
@@ -344,7 +345,7 @@ def main():
   totaltime = 0.8
   maxsteps = int(1e5)  # maximum number of time steps (in case using adaptive time step)
   maxiter = 1000  # maximum number of iterations for the staggered scheme
-  stagtol = 1e-4  # tolerance to consider the staggered scheme converged
+  stagtol = 1e-5  # tolerance to consider the staggered scheme converged
 
   # Boundary conditions
   imposed_displacement_y = 0.01  # such that we have nucleation at step 50
@@ -356,12 +357,13 @@ def main():
   material = MaterialParameters(E, nu, Gc, l0)
   factor = E / (1 - nu * nu)
   global D
+  factor = E / ((1 + nu) * (1 - 2 * nu))
   D = np.zeros((3, 3))
-  D[0, 0] = factor
+  D[0, 0] = factor * (1 - nu)
   D[0, 1] = factor * nu
   D[1, 0] = factor * nu
-  D[1, 1] = factor
-  D[2, 2] = factor * (1 - nu) / 2.0
+  D[1, 1] = factor * (1 - nu)
+  D[2, 2] = factor * (1 - 2 * nu) / 2.0 
 
   createDoubleNodeMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
   

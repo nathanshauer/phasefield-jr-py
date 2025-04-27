@@ -23,7 +23,6 @@
 # SOFTWARE.
 
 import numpy as np
-from numpy import dot
 import time
 import matplotlib.pyplot as plt
 import os
@@ -90,9 +89,10 @@ intrule = create2x2QuadratureRule() # Integration rule. Adopting 2x2 quadrature 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
 def createDoubleNodeMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
-  xsize = ysize = 0.001
+  xsize = ysize = 0.00125
   num_elements_y //= 2
-  num_elements_x_small = num_elements_y_small = 8
+  num_elements_x_small = 32
+  num_elements_y_small = 16
   num_elements_y_large = num_elements_y - num_elements_y_small
   num_elements_x_large = num_elements_x - num_elements_x_small
   y_small = ysize * num_elements_y_small
@@ -170,7 +170,7 @@ def createSparseStructure(K, elements, nodes, nstate):
 
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
   time = Timer()
-  for row in K.data:
+  for row in K.data: # zero out the stiffness sparse matrix
     for i in range(len(row)):
       row[i] = 0.0
   F.fill(0)
@@ -350,11 +350,11 @@ def main():
   E = 210.0  # Young's modulus in Pascals
   nu = 0.3  # Poisson's ratio
   Gc = 2.7e-3  # Strain energy release rate
-  l0 = 0.005  # Length scale parameter
+  l0 = 0.0075  # Length scale parameter
 
   # Define mesh and time step parameters
-  num_elements_x = 50 # has to be even number
-  num_elements_y = 30  # has to be even number
+  num_elements_x = 70 # has to be even number
+  num_elements_y = 80 # has to be even number
   length = 1.0
   height = 1.0
   dt = 0.01
@@ -371,14 +371,14 @@ def main():
   bc_nodes = np.array([], dtype=object)
 
   material = MaterialParameters(E, nu, Gc, l0)
-  factor = E / (1 - nu * nu)
   global D
+  factor = E / ((1 + nu) * (1 - 2 * nu))
   D = np.zeros((3, 3))
-  D[0, 0] = factor
+  D[0, 0] = factor * (1 - nu)
   D[0, 1] = factor * nu
   D[1, 0] = factor * nu
-  D[1, 1] = factor
-  D[2, 2] = factor * (1 - nu) / 2.0
+  D[1, 1] = factor * (1 - nu)
+  D[2, 2] = factor * (1 - 2 * nu) / 2.0  
 
   createDoubleNodeMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
   
@@ -398,7 +398,7 @@ def main():
   nnodes = len(nodes)
   ndofs_elas = nstate_elas * nnodes
   ndofs_pf = nstate_pf * nnodes
-  Kelas =  sparse.lil_matrix((ndofs_elas, ndofs_elas))
+  Kelas = sparse.lil_matrix((ndofs_elas, ndofs_elas))
   createSparseStructure(Kelas, elements, nodes, nstate_elas)
   Felas = np.zeros(ndofs_elas)
   global Uelas
@@ -426,7 +426,7 @@ def main():
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
       if iter != 0:
-        residual = Kelas.tocsr().dot(Uelas) - Felas
+        residual = Kelas.tocsr() @ Uelas - Felas
         norm = np.linalg.norm(residual)
         print(f"Residual Elasticity Norm: {norm:.2e}")
         if norm < stagtol:
