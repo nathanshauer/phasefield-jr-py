@@ -3,6 +3,9 @@
 
 The phase field method is a powerful tool for fracture analysis. However, it introduces certain challenges that are not encountered in traditional finite element analysis. With this in mind, this code was developed for educational purposes, providing a single-file implementation to help researchers familiarize themselves with the fundamentals of phase field analysis. It also serves as a reference for verifying their own code.
 
+The preprint of the accompanying paper is available at:
+[Link to paper preprint](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5293414)
+
 Check out the sister code in C++ on:
 [https://github.com/nathanshauer/phasefield-jr](https://github.com/nathanshauer/phasefield-jr)
 
