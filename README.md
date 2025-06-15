@@ -12,6 +12,9 @@ Check out the sister code in C++ on:
 For more information about me or to get in touch, please visit my website:
 [www.nathanshauer.com](http://www.nathanshauer.com)
 
+Phasefield-jr been extended to use a L-BFGS solver with line search and is available at: 
+[https://github.com/gfemuillinois/BORAM](https://github.com/gfemuillinois/BORAM)
+
 ## Configuration
 
 The code has been tested on macOS and Ubuntu. 
