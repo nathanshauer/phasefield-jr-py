@@ -76,7 +76,7 @@ class Timer:
 # =============================== GLOBAL VARIABLES ==============================
 # ===============================================================================
 # This is not ideal, but since it is a simple example there is no problem
-global Uelas, Upf, D, pseudotime, basefilename, vtkextension, intrule
+global Uelas, Upf, D, pseudotime, basefilename, vtkextension, intrule, isAlignedMesh
 Uelas = np.zeros(1) # Global vector with nodal values for the displacement approximation
 Upf = np.zeros(1) # Global vector with nodal values for the phase field approximation
 D = np.zeros((3, 3)) # Constitutive matrix of the 2D elasticity problem. 
@@ -84,6 +84,7 @@ pseudotime = 0.0 # Pseudo time used to control incremental displacement/load ste
 basefilename = "outputs/output_ex1_" # Base name for the Paraview output files
 vtkextension = ".vtk" # Extension for the Paraview output files
 intrule = create2x2QuadratureRule() # Integration rule. Adopting 2x2 quadrature rule
+isAlignedMesh = True # Whether the mesh elements are aligned with the coordinate axes
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
@@ -123,9 +124,18 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
             K[row + k, col + l] += Ke[nstate * i + k, nstate * j + l]
   # time.elapsed("assembly")
 
-def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
-  nnodes = len(element.node_ids)
-  n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
+def jacobian(nodes, dN):
+  coords = np.array([[n.x, n.y] for n in nodes]).T  # shape (2, 4)
+  J = coords @ dN.T  # shape (2, 2)
+  detjac = J[0, 0] * J[1, 1] - J[0, 1] * J[1, 0]
+  if abs(detjac) < 1e-8:
+    raise ValueError("Jacobian determinant is too small, check the mesh or element shape")
+  J_inv = np.array([[ J[1, 1], -J[0, 1]],
+                    [-J[1, 0],  J[0, 0]]]) / detjac
+  return J_inv, detjac
+
+def constantJacobian(elnodes):
+  n1, n2, n3, n4 = elnodes
   base = n2.x - n1.x
   height = n4.y - n1.y
   area = base * height
@@ -133,10 +143,19 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
   dqsidx = 2.0 / base
   detady = 2.0 / height
   J_inv = np.diag([dqsidx, detady])
+  return J_inv, detjac
+
+def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
+  nnodes = len(element.node_ids)
+  elnodes = [nodes[i] for i in element.node_ids] 
+  if isAlignedMesh:
+    J_inv, detjac = constantJacobian(elnodes)
 
   if nstate == 2: # compute elasticity stiffness
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
+      if not isAlignedMesh:
+        J_inv, detjac = jacobian(elnodes, dN)
       dN_xy = J_inv.T @ dN
       B = createB(dN_xy)
       phase_field = sum(N[0, nstate * i] * Upf[element.node_ids[i]] for i in range(nnodes))
@@ -148,14 +167,16 @@ def computeElementStiffness(Ke, Fe, nodes, element, mat, nstate):
     c0 = 2.0
     for qp in intrule:
       N, dN = shapeFunctions(qp.xi, qp.eta, nstate)
+      if not isAlignedMesh:
+        J_inv, detjac = jacobian(elnodes, dN)   
       dN_xy = J_inv.T @ dN # Same as B_phi
-      sigmaDotEps = calculateSigmaDotEps(element, dN_xy)
+      sigmaDotEps = calculateTensileSigmaDotEps(element, dN_xy)
       Ke += detjac * qp.weight * (Gc * l0 / c0 * (dN_xy.T @ dN_xy) + (Gc / (l0 * c0) + 0.5 * sigmaDotEps) * N.T @ N)
       Fe += detjac * qp.weight * 0.5 * sigmaDotEps * N.flatten()
   else:
     raise Exception("Invalid nstate")
 
-def calculateSigmaDotEps(element, dN):
+def calculateTensileSigmaDotEps(element, dN):
   dU = np.zeros((2, 2))
   for i in range(4):
     index = 2 * element.node_ids[i]
@@ -165,8 +186,17 @@ def calculateSigmaDotEps(element, dN):
     dU[1, 1] += dN[1, i] * Uelas[index + 1]
   strain = 0.5 * (dU + dU.T)
   strain_vec = np.array([strain[0, 0], strain[1, 1], 2 * strain[0, 1]])
-  stress_vec = D @ strain_vec
-  sigmaDotEps = stress_vec @ strain_vec
+  sigma_vec = D @ strain_vec
+  sigma = np.array([[sigma_vec[0], sigma_vec[2]],
+                    [sigma_vec[2], sigma_vec[1]]])
+
+  # Calculate eigenvalues of the stress tensor and strain tensor
+  eigsig = np.linalg.eigvals(sigma)
+  eigstrain = np.linalg.eigvals(strain)
+
+  # Only compute the energy related to tensile stresses
+  sigmaDotEps = sum(eigsig[i] * eigstrain[i] if eigstrain[i] > 0 else 0.0 for i in range(len(eigsig)))
+
   return sigmaDotEps
 
 def computeSigmaAtCenter(element, nodes, stress_vec):
@@ -290,10 +320,10 @@ def main():
     os.makedirs("outputs")
 
   simulation_time = Timer()
-  E = 30
-  nu = 0.2
-  Gc = 1.2e-4
-  l0 = 10.0
+  E = 30 # Young's modulus
+  nu = 0.2 # Poisson's ratio
+  Gc = 1.2e-4 # Strain energy release rate
+  l0 = 10.0 # Length scale parameter
 
   num_elements_x = 100
   num_elements_y = 10
@@ -392,7 +422,7 @@ def main():
   plt.ylabel('Stress/Stress_peak')
   plt.title('Stress vs Pseudo Time')
   plt.grid(True)
-  plt.savefig('outputs/stress_vs_time.png')
+  plt.savefig('outputs/ex1_stress_vs_time.png')
   # plt.show()
 
   print("\n================> Simulation completed!")

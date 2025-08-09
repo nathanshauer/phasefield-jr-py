@@ -23,7 +23,6 @@
 # SOFTWARE.
 
 import numpy as np
-from numpy import dot
 import time
 import matplotlib.pyplot as plt
 import os
@@ -83,27 +82,87 @@ Uelas = np.zeros(1) # Global vector with nodal values for the displacement appro
 Upf = np.zeros(1) # Global vector with nodal values for the phase field approximation
 D = np.zeros((3, 3)) # Constitutive matrix of the 2D elasticity problem. 
 pseudotime = 0.0 # Pseudo time used to control incremental displacement/load steps
-basefilename = "outputs/output_ex1_" # Base name for the Paraview output files
+basefilename = "outputs/output_ex3_" # Base name for the Paraview output files
 vtkextension = ".vtk" # Extension for the Paraview output files
 intrule = create2x2QuadratureRule() # Integration rule. Adopting 2x2 quadrature rule
 isAlignedMesh = True # Whether the mesh elements are aligned with the coordinate axes
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
-def createRectangularMesh(nodes, elements, num_elements_x, num_elements_y, length, height):
-  nodes.resize((num_elements_x+1) * (num_elements_y+1), refcheck=False)
-  for j in range(num_elements_y+1):
-    for i in range(num_elements_x+1):
-      nodes[j * (num_elements_x+1) + i] = Node(i * length / num_elements_x, j * height / num_elements_y)
+def createDoubleNodeMesh(num_elements_x, num_elements_y, length, height):
+  nodes = np.array([], dtype=object)
+  elements = np.array([], dtype=object)
 
-  elements.resize(num_elements_x * num_elements_y, refcheck=False)
-  for j in range(num_elements_y):
-    for i in range(num_elements_x):
-      n1 = j * (num_elements_x + 1) + i
+  nstartyels = 8 # n elements in y direction before the notch
+  yelsize = xelsize = 0.00625 # # Element size in x and y direction at notch region
+  notch_size = 0.4 # Notch size
+  num_elements_x_small = 16 # Number of elements in x direction for notch region
+  num_elements_y_small = 32 # Number of elements in y direction for notch region
+
+  sizeYstart = notch_size - yelsize * num_elements_y_small / 2
+  yelsizestart = sizeYstart / nstartyels
+  sizeYend = height - (notch_size + yelsize * num_elements_y_small / 2)
+  yelsizeend = sizeYend / num_elements_y
+  nelsy = nstartyels + num_elements_y_small + num_elements_y
+
+  x_small = xelsize * num_elements_x_small
+  sizeXend = length / 2 - xelsize * num_elements_x_small
+  xelsizeend = sizeXend / num_elements_x
+  nelsx = num_elements_x + num_elements_x_small
+
+  # Generate nodes
+  if num_elements_y % 2 != 0:
+    raise ValueError("num_elements_y must be an even number")
+
+  for i in range(nelsx+1):
+    ynow = 0
+    for j in range(nelsy+1):
+      if i <= num_elements_x_small:
+        x = i * xelsize
+      else:
+        x = x_small + (i - num_elements_x_small) * xelsizeend
+      nodes = np.append(nodes, Node(x, ynow))  # Append new node        
+      if j < nstartyels:
+        ynow += yelsizestart
+      elif j < nstartyels + num_elements_y_small:
+        ynow += yelsize
+      else:
+        ynow += yelsizeend
+
+  # Generate elements
+  for i in range(nelsx):
+    for j in range(nelsy):
+      n1 = i * (nelsy+1) + j
       n2 = n1 + 1
-      n3 = n1 + num_elements_x + 1
+      n3 = n1 + (nelsy+1)
       n4 = n3 + 1
-      elements[j * num_elements_x + i] = Element([n1, n2, n4, n3])
+      elements = np.append(elements, Element([n1, n3, n4, n2]))  # Counter-clockwise
+
+  # Mirror the mesh to negative x
+  original_node_count = nodes.size
+  node_map = {}
+
+  for i in range(original_node_count):
+    if abs(nodes[i].x) > 1.e-8:
+      mirrored_node = Node(-nodes[i].x, nodes[i].y)
+      nodes = np.append(nodes, mirrored_node)
+      node_map[i] = nodes.size - 1
+    else:
+      if nodes[i].y < notch_size - 1.e-8:
+        duplicated_node = Node(nodes[i].x, nodes[i].y)
+        nodes = np.append(nodes, duplicated_node)
+        node_map[i] = nodes.size - 1
+      else:
+        node_map[i] = i
+
+  # Generate elements for the mirrored part
+  original_element_count = elements.size
+  for i in range(original_element_count):
+    mirrored_element = Element([node_map[node_id] for node_id in elements[i].node_ids])
+    mirrored_element.node_ids.reverse()
+    elements = np.append(elements, mirrored_element)
+
+  return nodes, elements
 
 def createSparseStructure(K, elements, nodes, nstate):
   for element in elements:
@@ -138,6 +197,15 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate):
             index = K.rows[row+k].index(col+l)
             K.data[row+k][index] += Ke[nstate * i + k, nstate * j + l]
   # time.elapsed("assembly")
+
+def computeReaction(K, F, nodes, elements, mat):
+  assembleGlobalStiffness(K, F, elements, nodes, mat, 2)
+  residual = K.dot(Uelas)  # F is zero
+  reaction = 0.0
+  for i in range(len(nodes)):
+    if abs(nodes[i].x + 4.0) < 1.e-8 and abs(nodes[i].y - 0.0) < 1.e-8 or abs(nodes[i].x - 4.0) < 1.e-8 and abs(nodes[i].y - 0.0) < 1.e-8:
+      reaction += residual[2 * i + 1]
+  return reaction
 
 def jacobian(nodes, dN):
   coords = np.array([[n.x, n.y] for n in nodes]).T  # shape (2, 4)
@@ -213,30 +281,6 @@ def calculateTensileSigmaDotEps(element, dN):
   sigmaDotEps = sum(eigsig[i] * eigstrain[i] if eigstrain[i] > 0 else 0.0 for i in range(len(eigsig)))
 
   return sigmaDotEps
-
-def computeSigmaAtCenter(element, nodes, stress_vec):
-  qsi, eta = 0.0, 0.0
-  n1, n2, n3, n4 = [nodes[i] for i in element.node_ids]
-  base = n2.x - n1.x
-  height = n4.y - n1.y
-  dqsidx = 2.0 / base
-  dqsidy = 2.0 / height
-  J_inv = np.diag([dqsidx, dqsidy])
-  N, dN = shapeFunctions(qsi, eta, 2)
-  dN_xy = J_inv.T @ dN
-  dU = np.zeros((2, 2))
-  for i in range(4):
-    index = 2 * element.node_ids[i]
-    dU[0, 0] += dN_xy[0, i] * Uelas[index]
-    dU[0, 1] += dN_xy[1, i] * Uelas[index]
-    dU[1, 0] += dN_xy[0, i] * Uelas[index + 1]
-    dU[1, 1] += dN_xy[1, i] * Uelas[index + 1]
-  strain = 0.5 * (dU + dU.T)
-  strain_vec = np.array([strain[0, 0], strain[1, 1], 2 * strain[0, 1]])
-  phase_field = sum(N[0, 2 * i] * Upf[element.node_ids[i]] for i in range(4))
-  g = (1.0 - phase_field) ** 2
-  stress_vec[:] = g * D @ strain_vec
-  return phase_field
 
 def shapeFunctions(qsi, eta, nstate):
   phi1qsi = (1 + qsi) / 2.0
@@ -338,29 +382,24 @@ def main():
     os.makedirs("outputs")
 
   simulation_time = Timer()
-  E = 30 # Young's modulus
-  nu = 0.2 # Poisson's ratio
-  Gc = 1.2e-4 # Strain energy release rate
-  l0 = 10.0 # Length scale parameter
+  E = 20.8  # Young's modulus
+  nu = 0.3  # Poisson's ratio
+  Gc = 5.0e-4  # Strain energy release rate
+  l0 = 0.03  # Length scale parameter
 
-  num_elements_x = 100
-  num_elements_y = 10
-  length = 200.0
-  height = 20.0
-  dt = 0.02
-  totaltime = 1.5
-  maxsteps = int(1e5)
-  maxiter = 600
-  stagtol = 1e-6
+  # Define mesh and time step parameters
+  num_elements_x = 14 # has to be even number
+  num_elements_y = 10 # has to be even number. Mesh 1: 10, Mesh 2: 20
+  length = 8.0
+  height = 2.0
+  dt = 0.01
+  totaltime = 1.0
+  maxsteps = int(1e5)  # maximum number of time steps (in case using adaptive time step)
+  maxiter = 1000  # maximum number of iterations for the staggered scheme
+  stagtol = 1e-4  # tolerance to consider the staggered scheme converged
 
-  sigma_peak_at2 = np.sqrt(27.0 * E * Gc / (256.0 * l0))
-  u_peak_at2 = 16.0 / 9.0 * sigma_peak_at2 * length / E
-  print(f"Sigma peak: {sigma_peak_at2}")
-  print(f"U peak: {u_peak_at2}")
-  imposed_displacement_x = u_peak_at2
-
-  nodes = np.array([], dtype=object)
-  elements = np.array([], dtype=object)
+  # Boundary conditions
+  imposed_displacement_y = -0.08 
   bc_nodes = np.array([], dtype=object)
 
   material = MaterialParameters(E, nu, Gc, l0)
@@ -373,13 +412,16 @@ def main():
   D[1, 1] = factor
   D[2, 2] = factor * (1 - nu) / 2.0
 
-  createRectangularMesh(nodes, elements, num_elements_x, num_elements_y, length, height)
-  
+  nodes, elements = createDoubleNodeMesh(num_elements_x, num_elements_y, length, height)
+
+  # Create boundary conditions
   for i in range(len(nodes)):
-    if abs(nodes[i].x) < 1e-8:
-      bc_nodes = np.append(bc_nodes, BC(i, 0, 0.0, 0.0))
-    elif abs(nodes[i].x - length) < 1e-8:
-      bc_nodes = np.append(bc_nodes, BC(i, 1, imposed_displacement_x, 0.0))
+    if (abs(nodes[i].x + 4.0) < 1e-8 and abs(nodes[i].y - 0.0) < 1e-8):
+      bc_nodes = np.append(bc_nodes, BC(i, 0, 0.0, 0.0)) # fixed support in x and y
+    if (abs(nodes[i].x - 4.0) < 1e-8 and abs(nodes[i].y - 0.0) < 1e-8):
+      bc_nodes = np.append(bc_nodes, BC(i, 2, 0.0, 0.0)) # fixed support in y
+    if abs(nodes[i].y - height) < 1.e-8 and abs(nodes[i].x) < 0.1 + 1e-8 and abs(nodes[i].x) > - 0.1 - 1e-8:
+      bc_nodes = np.append(bc_nodes, BC(i, 2, 0.0, imposed_displacement_y)) # Imposed y displacement on the top edge
 
   nstate_elas = 2
   nstate_pf = 1
@@ -399,9 +441,8 @@ def main():
   Upf = np.zeros(ndofs_pf)
 
   # Data structure to save the data
-  time_data = []
-  stress_data = []
-  stress_data_analy = []
+  u_data = []
+  force_data = []
 
   print(f"Number of elements: {len(elements)}")
   print(f"Number of nodes: {len(nodes)}")
@@ -413,7 +454,7 @@ def main():
     if pseudotime > totaltime:
       break
     print(f"******************** Time Step {step} | Pseudo time = {pseudotime:.6f} | Time step = {dt} ********************")
-    for iter in range(maxiter):
+    for iter in range(maxiter):      
       print(f"------ Staggered Iteration {iter} ------")
       assembleGlobalStiffness(Kelas, Felas, elements, nodes, material, nstate_elas)
       applyBoundaryConditions(Kelas, Felas, bc_nodes)
@@ -432,26 +473,19 @@ def main():
     filename = f"{basefilename}{step}{vtkextension}"
     generateVTKLegacyFile(nodes, elements, filename)
 
-    sig = np.zeros(3)
-    pfmid = computeSigmaAtCenter(elements[450], nodes, sig) # element 450 is in the middle of the domain    
-    analy = np.sqrt(E * Gc / l0 * pfmid * (1-pfmid)**3)
-
     # Save the data
-    time_data.append(pseudotime)
-    stress_data.append(sig[0]/sigma_peak_at2)
-    stress_data_analy.append(analy/sigma_peak_at2)
+    reaction = computeReaction(Kelas, Felas, nodes, elements, material)
+    u_data.append(abs(pseudotime*imposed_displacement_y))
+    force_data.append(reaction)
 
-  np.savetxt('outputs/stress_data_analy.txt', stress_data_analy)
-
-  # Plot the data using matplotlib
-  plt.figure()
-  plt.plot(time_data, stress_data, 'o', label='Numerical')
-  plt.plot(time_data, stress_data_analy, 'x', label='Analytical')
-  plt.xlabel('Pseudo Time')
-  plt.ylabel('Stress/Stress_peak')
-  plt.title('Stress vs Pseudo Time')
-  plt.grid(True)
-  plt.savefig('outputs/ex1_stress_vs_time.png')
+    # Plot the data using matplotlib
+    plt.figure()
+    plt.plot(u_data, force_data, 'o')
+    plt.xlabel('u (mm)')
+    plt.ylabel('Force (kN)')
+    plt.title('Force vs imposed u')
+    plt.grid(True)
+    plt.savefig('outputs/ex3_force_vs_u.png')
   # plt.show()
 
   print("\n================> Simulation completed!")
