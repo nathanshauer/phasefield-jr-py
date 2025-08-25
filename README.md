@@ -1,10 +1,11 @@
 # phasefield-jr-py
 #### A simple one file Python project to run 2D phase field problems with linear quadrilaterals
 
+![3-point bending test deformation](figures/ex3-warp2.png)
+
 The phase field method is a powerful tool for fracture analysis. However, it introduces certain challenges that are not encountered in traditional finite element analysis. With this in mind, this code was developed for educational purposes, providing a single-file implementation to help researchers familiarize themselves with the fundamentals of phase field analysis. It also serves as a reference for verifying their own code.
 
-The preprint of the accompanying paper is available at:
-[Link to paper preprint](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5293414)
+The Python scripts in this repository are accompanied by a research paper that provides additional background, methodology, and results. You can read the paper here: [Link to paper](https://doi.org/10.1016/j.advengsoft.2025.104013).
 
 Check out the sister code in C++ on:
 [https://github.com/nathanshauer/phasefield-jr](https://github.com/nathanshauer/phasefield-jr)
@@ -12,8 +13,9 @@ Check out the sister code in C++ on:
 For more information about me or to get in touch, please visit my website:
 [www.nathanshauer.com](http://www.nathanshauer.com)
 
-Phasefield-jr has been extended to use an L-BFGS solver with line search and is available at:
-[https://github.com/gfemuillinois/BORAM](https://github.com/gfemuillinois/BORAM)
+Phasefield-jr has been extended to use an L-BFGS solver with line search and is available at: [https://github.com/gfemuillinois/BORAM](https://github.com/gfemuillinois/BORAM)
+
+A simplified version that assumes only tensile loads is available on the branch pure-tensile: [Pure-tensile branch on GitHub](https://github.com/nathanshauer/phasefield-jr-py/tree/pure-tensile). The preprint of the accompanying paper that also assumes only tensile loads is available at: [Link to paper preprint](https://www.researchgate.net/publication/392664425_Less_than_500_Lines_Self-Contained_Python_Finite_Element_Implementation_of_the_Phase-Field_Method_for_Fracture_Mechanics)
 
 ## Configuration
 
@@ -21,7 +23,7 @@ The code has been tested on macOS and Ubuntu.
 
 ### Installing Python, numpy, scipy and matplotlib
 
-To run the code, you need to have Python, numpy and matplotlib installed on your system. Scipy is also needed if using the examples that adopt sparse matrices (`example1.py` and `example2.py`). Follow these steps to install them:
+To run the code, you need to have Python, numpy and matplotlib installed on your system. Scipy is also needed if using the examples that adopt sparse matrices (`example1_sparse.py` and `example2_sparse.py`). Follow these steps to install them:
 
 1. **Install Python**: If you don't have Python installed, download and install it from the [official website](https://www.python.org/downloads/). You can also download python using package manager in Linux or macports/homebrew in macOS. **The code was tested using Python 3.12**
 
@@ -51,6 +53,7 @@ This repository includes two sets of examples: one using sparse matrices and ano
 1. **Sparse Matrix Examples**: 
   - `example1_sparse.py`: Simulates a bar under tension using sparse matrices for improved scalability.
   - `example2_sparse.py`: Simulates a single-edge notch plate under tension using sparse matrices.
+  - `example3_sparse.py`: Simulates a 3-point bending test using sparse matrices.
 
   Sparse matrices are more memory-efficient and computationally scalable, especially for large problems. However, they introduce additional complexities in data structure management.
 
@@ -70,7 +73,7 @@ python <example_file>.py
 
 Replace `<example_file>` with the desired example script (e.g., `example1_sparse.py` or `example2_dense.py`).
 
-Both examples 1 and 2 will generate output files in the `output` directory, which can be visualized using ParaView as described in the "Output in Paraview using vtk files" section.
+All examples will generate output files in the `output` directory, which can be visualized using ParaView as described in the "Output in Paraview using vtk files" section.
 
 ## Output in Paraview using vtk files
 To visualize the output in ParaView using VTK files, follow these steps:
@@ -89,18 +92,33 @@ To visualize the output in ParaView using VTK files, follow these steps:
 
 5. **Visualize the data**: Use the various visualization tools in ParaView to explore the simulation results. You can adjust the display properties, apply filters, and create animations to better understand the phase field analysis.
 
-## Quantitative analyses 
+Below are example images illustrating the phase-field variable for the notched plate under tension (example 2), shown at the onset of fracture and after fracture has occurred.
+
+<p align="center">
+  <img src="figures/ex2-warpphase.png" alt="Phase-field variable at onset of fracture" width="250"/>
+  <img src="figures/ex2-warpphase-after.png" alt="Phase-field variable after fracture" width="250"/>
+</p>
+
+## Quantitative analyses
 
 The project includes quantitative analysis of the simulation results directly within the Python scripts. At the end of each run, the analysis is performed, and the results are saved in the `output` directory.
 
 1. **Analysis of Bar under Tension (example1)**
-  - This analysis is performed at the end of the `example1` simulation.
   - The script generates a plot of `sigma/sigma_peak x time`, where `sigma_peak` is calculated analytically.
-  - The plot is saved as `example1_timexsigma.png` in the `output` directory.
+  - The plot is saved as `ex1_stress_vs_time.png` in the `output` directory.
 
 2. **Analysis of Single-edge Notch Plate under Tension (example2)**
-  - This analysis is performed at the end of the `example2` simulation.
   - The script generates a plot of `Reaction force x imposed displacement`.
-  - The plot is saved as `example2_pdelta.png` in the `output` directory.
+  - The plot is saved as `ex2_force_vs_u.png` in the `output` directory.
+
+3. **Analysis of 3-Point Bending Test (example3)**
+  - The script generates a plot of `Reaction force x imposed displacement`.
+  - The plot is saved as `ex3_force_vs_u.png` in the `output` directory.
 
 To view the analysis results, navigate to the `output` directory after running the simulations and open the respective PNG files.
+
+Below is an example output from Example 1, illustrating the expected results. The plot shows the simulated stress (blue curve) compared with the analytical stress calculated from the phase-field value (yellow curve): 
+
+<p align="center">
+  <img src="figures/ex1-stress_vs_time.png" alt="Stress vs Time" width="500"/>
+</p>
