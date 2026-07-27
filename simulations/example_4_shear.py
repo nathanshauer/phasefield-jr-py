@@ -3,12 +3,6 @@
 # phasefield-jr
 # Simulation: Simple Shear Test
 
-"""
-This file defines a single simulation configuration in the module-level
-variable CONFIG. config_simulations.get_simulation_config('example_4_shear')
-loads exactly this file (and no other) at runtime.
-"""
-
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig, ReactionConfig
 
 CONFIG = SimulationConfig(

@@ -3,12 +3,6 @@
 # phasefield-jr
 # Simulation: Simple Bar under Tension
 
-"""
-This file defines a single simulation configuration in the module-level
-variable CONFIG. config_simulations.get_simulation_config('example_1_simplebar')
-loads exactly this file (and no other) at runtime.
-"""
-
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig
 
 CONFIG = SimulationConfig(
@@ -36,7 +30,7 @@ CONFIG = SimulationConfig(
         'dt': 0.01,
         'totaltime': 1.5,
         'maxsteps': int(1e5),
-        'maxiter': 600,
+        'maxiter': 500,
         'stagtol': 1e-4,
     },
     output_base='outputs/ex1_simplebar',

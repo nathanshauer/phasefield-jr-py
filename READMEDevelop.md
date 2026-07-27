@@ -22,61 +22,6 @@ python PhaseFieldJr.py example_1_simplebar
 
 If no argument is given, `config_name` defaults to `'default'`, which does not exist, and the run fails with a clear error message listing what is available. Always pass an explicit simulation name.
 
-## Data Structures
-
-All structures are `@dataclass` instances defined in `config_simulations.py`, and imported from there in each simulation file.
-
-### `BoundaryCondition`
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | identifier |
-| `node_filter` | `callable` or `int`/`str` | lambda filtering `Node` objects, or a Gmsh physical-group tag |
-| `bc_type` | `int` | `0` Dirichlet x&y · `1` Dirichlet x · `2` Dirichlet y · `3` Neumann |
-| `xval` | `float` | displacement/load in x |
-| `yval` | `float` | displacement/load in y |
-
-### `MaterialParameters`
-| Field | Type | Description |
-|---|---|---|
-| `E` | `float` | Young's modulus |
-| `nu` | `float` | Poisson's ratio |
-| `Gc` | `float` | critical energy release rate |
-| `l0` | `float` | length-scale parameter |
-| `length` | `float` | reference bar length for peak-stress formulas (default `1.0`) |
-| `material_type` | `str` | `'plane_stress'` (default) or `'plane_strain'` |
-
-### `ReactionConfig`
-| Field | Type | Description |
-|---|---|---|
-| `reaction_type` | `str` | `'bottom_ids_y'`, `'bottom_ids_x'`, or `'supports_y'` |
-| `reaction_dof` | `int` | DOF to collect (`0`=x, `1`=y) |
-| `sign_factor` | `float` | `-1.0` or `1.0` |
-| `support_coords` | `Optional[Tuple[float,float]]` | informational only (e.g. bending supports) |
-
-### `GraphConfig`
-| Field | Type | Description |
-|---|---|---|
-| `graph_type` | `str` | `'stress_vs_time'` or `'force_vs_displacement'` |
-| `output_file` | `str` | path of the saved `.png` |
-| `x_label` / `y_label` / `title` | `str` | plot labels |
-| `element_id` | `Optional[int]` | element used to sample stress (for `'stress_vs_time'`) |
-| `displacement_axis` | `str` | `'x'` or `'y'` (for `'force_vs_displacement'`) |
-
-### `SimulationConfig`
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | descriptive name |
-| `mesh_file` | `Optional[str]` | path to the `.msh` file |
-| `mesh_type` | `str` | `'gmsh'` (only supported option currently) |
-| `material` | `MaterialParameters` | — |
-| `boundary_conditions` | `List[BoundaryCondition]` | — |
-| `simulation_params` | `Dict[str, Any]` | `dt`, `totaltime`, `maxsteps`, `maxiter`, `stagtol`, and optionally `nthreads` |
-| `output_base` | `str` | prefix for VTK output filenames |
-| `graph_config` | `Optional[GraphConfig]` | — |
-| `reaction_config` | `Optional[ReactionConfig]` | — |
-| `imposed_displacement` | `float` | reference displacement for peak-stress formulas (default `0.04`) |
-| `mesh_generation_params` | `Optional[Dict]` | reserved for future procedural mesh generation |
-
 ## Important Implementation Notes
 
 - **Only `mesh_type='gmsh'` is currently supported.** Any other value raises a `ValueError`.
@@ -121,7 +66,7 @@ Three-point bending test.
 
 ### `example_4_shear`
 Notched plate under shear.
-- Mesh: `cisalhamento.msh` · plane strain
+- Mesh: `shear.msh` · plane strain
 - Material: E=210, ν=0.3, Gc=2.7e-3, l0=0.003, length=1.0
 - BCs: tag `20` Dirichlet x&y `xval=0.04` (top); tag `10` full clamp (base)
 - `dt=0.005`, `totaltime=0.9`, `maxiter=500`, `stagtol=1e-4`

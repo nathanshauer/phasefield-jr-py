@@ -3,12 +3,6 @@
 # phasefield-jr
 # Simulation: Notched Plate under Tension
 
-"""
-This file defines a single simulation configuration in the module-level
-variable CONFIG. config_simulations.get_simulation_config('example_2_notchedplate')
-loads exactly this file (and no other) at runtime.
-"""
-
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig, ReactionConfig
 
 CONFIG = SimulationConfig(

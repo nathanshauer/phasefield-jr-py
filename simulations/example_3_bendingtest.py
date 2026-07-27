@@ -3,12 +3,6 @@
 # phasefield-jr
 # Simulation: Bending Test
 
-"""
-This file defines a single simulation configuration in the module-level
-variable CONFIG. config_simulations.get_simulation_config('example_3_bendingtest')
-loads exactly this file (and no other) at runtime.
-"""
-
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig, ReactionConfig
 
 CONFIG = SimulationConfig(

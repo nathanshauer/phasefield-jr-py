@@ -5,14 +5,10 @@
 
 """
 This module centralizes all simulation configurations and structures.
-It no longer relies on an external 'sim_structures.py' file.
 
 Each simulation lives in its own file inside the 'simulations/' folder 
 (e.g. simulations/example_1_simplebar.py), and each of those files exposes 
 a module-level 'CONFIG' variable.
-
-get_simulation_config(name) loads -- via importlib -- ONLY the file that
-corresponds to the requested simulation name.
 """
 
 import os
