@@ -45,7 +45,7 @@ Bar under tension.
 - Mesh: `simplebar.msh` · plane stress
 - Material: E=30, ν=0.2, Gc=1.2e-4, l0=10.0, length=200.0
 - BCs: tag `100` clamped (x,y); tag `200` Dirichlet-x `xval=0.08`
-- `dt=0.01`, `totaltime=1.5`, `maxiter=600`, `stagtol=1e-4`
+- `dt=0.01`, `totaltime=1.5`, `maxiter=500`, `stagtol=1e-4`
 - Graph: `stress_vs_time` at `element_id=450` → `outputs/ex1_stress_vs_timeSimpleBar.png`
 
 ### `example_2_notchedplate`
