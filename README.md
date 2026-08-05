@@ -74,7 +74,9 @@ Notched plate under shear.
 
 ## How to Add a New Simulation
 
-Create a new file inside `simulations/`. That is the only step — `config_simulations.py` does not need to be touched.
+Create a new file inside `simulations/` and set all the parameters and boundary conditions that you want. `config_simulations.py` does not need to be modified. 
+
+Remember that you need to generate the .msh file for your simulation using Gmsh and put it inside `simulations/`.
 
 ```python
 # simulations/my_simulation.py
