@@ -192,4 +192,4 @@ if __name__ == "__main__":
         print(name)
     # Load a specific configuration (only that file is imported)
     config = get_simulation_config('example_1_simplebar')
-    print(f"Simulation parameters of {config.name}:\n {config.simulation_params}")
+    print(f"\nSimulation parameters of {config.name}:\n {config.simulation_params}")

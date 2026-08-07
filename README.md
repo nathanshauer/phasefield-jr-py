@@ -149,10 +149,10 @@ You can get the parameters of any example:
 if __name__ == "__main__":
     from config_simulations import get_simulation_config, list_available_simulations
 
-    # Lists all available simulations (just scans filenames, does not import them)
+    # Lists all available simulations 
     for name in list_available_simulations():
         print(name)
-    # Load a specific configuration (only that file is imported)
+    # Load a specific configuration 
     config = get_simulation_config('example_1_simplebar')
     print(f"Simulation parameters of {config.name}:\n {config.simulation_params}")
 ```
