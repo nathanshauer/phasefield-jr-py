@@ -6,7 +6,7 @@
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig
 
 CONFIG = SimulationConfig(
-    name='Example 1: Simple Bar under Tension (simplebar.py) ',
+    name='Example 1: Simple Bar under tension',
     mesh_file='simplebar.msh',
     mesh_type='gmsh',
     material=MaterialParameters(E=30, nu=0.2, Gc=1.2e-4, l0=10.0, length=200.0, material_type='plane_stress'),

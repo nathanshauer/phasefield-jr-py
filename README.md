@@ -22,6 +22,11 @@ python PhaseFieldJr.py example_1_simplebar
 
 If no argument is given, `config_name` defaults to `'default'`, which does not exist, and the run fails with a clear error message listing what is available. Always pass an explicit simulation name.
 
+To run any example, open a terminal, navigate to the project directory, and execute the following command:
+```bash
+python PhaseFieldJr.py <example_file>
+```
+
 ## Important Implementation Notes
 
 - **Only `mesh_type='gmsh'` is currently supported.** Any other value raises a `ValueError`. Make sure you have the Meshio library. If you do not, go to the terminal and run:
@@ -31,6 +36,7 @@ pip install meshio
 - **BC values scale with pseudo-time.** `applyBoundaryConditions()` multiplies `bc.xval`/`bc.yval` by `pseudotime` on every step, so the value in the config is effectively a *rate*. With `totaltime=1.5` and `xval=0.08`, the imposed displacement keeps growing past `0.08` once `pseudotime > 1.0`.
 - **`readGmshMesh()` returns `(nodes, elements, physical_groups)`**, where `physical_groups` maps each Gmsh physical tag (`int`) to a list of node IDs. `create_bc_nodes_from_config()` uses tags when `node_filter` is an `int`/`str`, or falls back to geometric filtering when it is a callable.
 - **Thread count is system-aware.** `get_default_nthreads(reserve=2)` reads `os.cpu_count()` and reserves 2 cores for the OS by default. The value is computed once at import time as `DEFAULT_NTHREADS`. Inside `main()`, `mythread` is set from `config.simulation_params.get('nthreads', DEFAULT_NTHREADS)` — so you can override the thread count per simulation by adding `'nthreads': N` to `simulation_params`.
+
 
 ## Boundary Condition Types
 
@@ -74,6 +80,8 @@ Notched plate under shear.
 - BCs: tag `20` Dirichlet x&y `xval=0.04` (top); tag `10` full clamp (base)
 - `dt=0.005`, `totaltime=0.9`, `maxiter=500`, `stagtol=1e-4`
 - Graph: `force_vs_displacement` (x-axis) → `outputs/ex4_force_vs_u.png`
+
+
 
 ## How to Add a New Simulation
 
