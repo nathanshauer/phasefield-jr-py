@@ -1,5 +1,5 @@
 # phasefield-jr-py
-### A branch for phasefield-jr project based on a centralized simulation system
+### A branch for phasefield-jr based on a centralized simulation system
 ![3-point bending test deformation](figures/ex3.png)
 
 The phase field method is a powerful tool for fracture analysis. However, it introduces certain challenges that are not encountered in traditional finite element analysis. With this in mind, this code was developed for educational purposes, providing a self-contained implementation to help researchers familiarize themselves with the fundamentals of phase field analysis. It also serves as a reference for verifying their own code.
@@ -16,7 +16,7 @@ Phasefield-jr has been extended to use an L-BFGS solver with line search and is 
 
 A simplified version that assumes only tensile loads is available on the branch pure-tensile: [Pure-tensile branch on GitHub](https://github.com/nathanshauer/phasefield-jr-py/tree/pure-tensile). The preprint of the accompanying paper that also assumes only tensile loads is available at: [Link to paper preprint](https://www.researchgate.net/publication/392664425_Less_than_500_Lines_Self-Contained_Python_Finite_Element_Implementation_of_the_Phase-Field_Method_for_Fracture_Mechanics)
 
-> **Note:** the code has since evolved from the original phasephield-jr layout into a centralized simulation system (see below). The examples described in the accompanying papers correspond to the pre-configured simulations `example_1_simplebar`, `example_2_notchedplate`, `example_3_bendingtest` and `example_4_shear` described in this document.
+> **Note:** the code has since evolved from the original phasefield-jr layout into a centralized simulation system (see below). The examples described in the accompanying papers correspond to the pre-configured simulations `example_1_simplebar`, `example_2_notchedplate`, `example_3_bendingtest` and `example_4_shear` described in this document.
 
 ## Configuration
 
@@ -24,7 +24,7 @@ The code has been tested on macOS and Ubuntu.
 
 ### Installing Python, numpy, scipy, matplotlib and meshio
 
-To run the code, you need to have Python, numpy, matplotlib and meshio installed on your system. Scipy is also needed for the sparse-matrix routines used internally by the solver, and `meshio` is required to read the Gmsh mesh files (`.msh`) used by the simulations. Follow these steps to install them:
+To run the code, you need to have Python, numpy and matplotlib installed on your system. Scipy is also needed for the sparse-matrix routines used internally by the solver, and `meshio` is required to read the Gmsh mesh files (`.msh`) used by the simulations. Follow these steps to install them:
 
 1. **Install Python**: If you don't have Python installed, download and install it from the [official website](https://www.python.org/downloads/). You can also install Python using a package manager in Linux or macports/homebrew in macOS. **The code was tested using Python 3.12**
 
@@ -123,7 +123,7 @@ CONFIG = SimulationConfig(
 )
 ```
 
- The new simulation will then be runnable with:
+The new simulation will then be runnable with:
 
 ```sh
 python phasefieldjr.py my_simulation
@@ -134,7 +134,7 @@ and will appear automatically when listing available simulations (`list_availabl
 
 ## Utility Functions
 
-You can view all available examples and get the parameters of any of them by running the `config_simulations.py`:
+You can view all available examples and get the parameters of any of them by running `config_simulations.py`:
 
 ```python
 if __name__ == "__main__":
