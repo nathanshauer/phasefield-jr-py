@@ -6,17 +6,17 @@ This document describes how to use the simulation configuration system for the P
 
 - **`config_simulations.py`**: defines all data structures (`SimulationConfig`, `MaterialParameters`, etc.) and the loader functions. It does **not** contain any simulation data itself.
 - **`simulations/<name>.py`**: each file defines exactly one simulation through a module-level `CONFIG` variable. Adding a new simulation means adding a new file here — `config_simulations.py` never needs to be edited.
-- **`PhaseFieldJr.py`**: the phase-field solver. Its `main(config_name)` function loads the requested configuration, builds the mesh/material/BCs, and runs the staggered elasticity/phase-field scheme.
+- **`phasefieldjr.py`**: the phase-field solver. Its `main(config_name)` function loads the requested configuration, builds the mesh/material/BCs, and runs the staggered elasticity/phase-field scheme.
 
 ## How the System Works
 
 When you run:
 
 ```bash
-python PhaseFieldJr.py example_1_simplebar
+python phasefieldjr.py example_1_simplebar
 ```
 
-`PhaseFieldJr.py` calls `get_simulation_config('example_1_simplebar')`, which uses `importlib` to load **only** `simulations/example_1_simplebar.py` and return its `CONFIG` variable. No other simulation file is ever imported or executed.
+`phasefieldjr.py` calls `get_simulation_config('example_1_simplebar')`, which uses `importlib` to load **only** `simulations/example_1_simplebar.py` and return its `CONFIG` variable. No other simulation file is ever imported or executed.
 
 `list_available_simulations()` works by scanning filenames in the `simulations/` folder.
 
@@ -24,7 +24,7 @@ If no argument is given, `config_name` defaults to `'default'`, which does not e
 
 To run any example, open a terminal, navigate to the project directory, and execute the following command:
 ```bash
-python PhaseFieldJr.py <example_file>
+python phasefieldjr.py <example_file>
 ```
 
 ## Important Implementation Notes
@@ -136,7 +136,7 @@ CONFIG = SimulationConfig(
 Then run it with:
 
 ```bash
-python PhaseFieldJr.py my_simulation
+python phasefieldjr.py my_simulation
 ```
 
 The new simulation will also appear automatically in `list_available_simulations()`.

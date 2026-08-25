@@ -694,7 +694,7 @@ if __name__ == "__main__":
   config_name = sys.argv[1] if len(sys.argv) > 1 else 'default'
   
   print("\n" + "="*80)
-  print(f"PhaseFieldJr- Simulation: {config_name}")
+  print(f"phasefieldjr- Simulation: {config_name}")
   print("="*80 + "\n")
   
   main(config_name)
