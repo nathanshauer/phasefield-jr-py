@@ -9,18 +9,18 @@ CONFIG = SimulationConfig(
     name='Example 4: Shear Test',
     mesh_file='shear.msh',
     mesh_type='gmsh',
-    material=MaterialParameters(E=210, nu=0.3, Gc=2.7e-3, l0=0.003, length=1.0, material_type='plane_strain'),
+    material=MaterialParameters(E=210, nu=0.3, Gc=2.7e-3, l0=0.003, material_type='plane_strain'),
     boundary_conditions=[
         BoundaryCondition(
             name='top_id',
-            node_filter=20,  # Gmsh tag (top_ids)
+            node_filter='Top_ids',  # Gmsh tag (top_ids)
             bc_type=0,  # Dirichlet in x and y
             xval=0.04,  # imposed_displacement_x
             yval=0.0
         ),
         BoundaryCondition(
             name='bottom_id',
-            node_filter=10,  # Gmsh tag (bottom_ids)
+            node_filter='Bottom_ids',  # Gmsh tag (bottom_ids)
             bc_type=0,  # Full clamp
             xval=0.0,
             yval=0.0

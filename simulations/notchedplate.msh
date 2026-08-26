@@ -3,9 +3,9 @@ $MeshFormat
 $EndMeshFormat
 $PhysicalNames
 4
-0 30 "Fixed_Node_X"
-1 10 "Bottom_Edge"
-1 20 "Top_Edge"
+0 30 "Fixed_x"
+1 10 "Bottom_ids"
+1 20 "Top_ids"
 2 40 "Domain"
 $EndPhysicalNames
 $Entities

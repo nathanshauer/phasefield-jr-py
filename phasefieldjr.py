@@ -176,12 +176,26 @@ def readGmshMesh(filename):
     
     for tag in physical_groups:
         physical_groups[tag] = list(physical_groups[tag])
-            
+
+    # Build a name -> tag map from the physical names defined in the .geo file
+    # (e.g. Physical Curve("Left_ids") = {4};), so BCs in the config can use
+    # the string name instead of having to know the numeric Gmsh tag.
+    physical_name_to_tag = {}
+    for name, (tag, dim) in mesh.field_data.items():
+        physical_name_to_tag[name] = tag
+
+    # Also expose the groups keyed by name directly, for convenience.
+    physical_groups_by_name = {}
+    for name, tag in physical_name_to_tag.items():
+        if tag in physical_groups:
+            physical_groups_by_name[name] = physical_groups[tag]
+
     print(f"Mesh loaded: {len(nodes)} nodes and {len(elements)} elements.")
     print(f"Physical Groups detected (Tags): {list(physical_groups.keys())}")
-    
-    
-    return nodes, elements, physical_groups
+    if physical_name_to_tag:
+        print(f"Physical Groups detected (Names -> Tags): {physical_name_to_tag}")
+
+    return nodes, elements, physical_groups, physical_name_to_tag
 
 
 def createSparseStructure(K, elements, nodes, nstate):
@@ -487,27 +501,41 @@ def generateVTKLegacyFile(nodes, elements, filename):
       vtkFile.write(f"{Upf[i]}\n")
 
 
-def create_bc_nodes_from_config(nodes, boundary_conditions, physical_groups=None):
+def create_bc_nodes_from_config(nodes, boundary_conditions, physical_groups=None, physical_name_to_tag=None):
   """
   Creates BC objects from the configuration.
   
   If node_filter is a function: uses the function to filter nodes
-  If using physical_groups: allows using tags from Gmsh
+  If node_filter is an int: treated as the numeric Gmsh Physical Group tag
+  If node_filter is a str: resolved via physical_name_to_tag to the matching
+                            Physical Group tag (e.g. "Left_ids" -> 1), using
+                            the names defined in the .geo file
+                            (Physical Curve("Left_ids") = {...};)
   """
   bc_nodes = []
   
   for bc_config in boundary_conditions:
-    
+
     if physical_groups and isinstance(bc_config.node_filter, (str, int)):
-      node_ids = physical_groups.get(bc_config.node_filter, [])
+
+      node_filter = bc_config.node_filter
+
+      # Resolve string names (e.g. "Left_ids") to the numeric Gmsh tag
+      if isinstance(node_filter, str):
+        if not physical_name_to_tag or node_filter not in physical_name_to_tag:
+          available = list(physical_name_to_tag.keys()) if physical_name_to_tag else []
+          raise ValueError(
+              f"Boundary condition '{bc_config.name}' references physical group "
+              f"name '{node_filter}', but it was not found in the mesh.\n"
+              f"Available physical group names: {available}"
+          )
+        node_filter = physical_name_to_tag[node_filter]
+
+      node_ids = physical_groups.get(node_filter, [])
       for node_id in node_ids:
         bc_nodes.append(BC(node_id, bc_config.bc_type, bc_config.xval, bc_config.yval))
   
-    elif callable(bc_config.node_filter):
-      for node_id, node in enumerate(nodes):
-        if bc_config.node_filter(node):
-          bc_nodes.append(BC(node_id, bc_config.bc_type, bc_config.xval, bc_config.yval))
-  
+      
   return bc_nodes
 
 # =============================== MAIN ==========================================
@@ -544,7 +572,7 @@ def main(config_name='default'):
     if config.mesh_type == 'gmsh':
       mesh_file = os.path.join("simulations", config.mesh_file)
       print(f" Used mesh: {mesh_file}")
-      nodes, elements, physical_groups = readGmshMesh(mesh_file)
+      nodes, elements, physical_groups, physical_name_to_tag = readGmshMesh(mesh_file)
     else:
       raise ValueError(f"Mesh type '{config.mesh_type}' not supported. Please use 'gmsh'.")
     
@@ -573,7 +601,7 @@ def main(config_name='default'):
 
   # Apply boundary conditions from the configuration
   print(f" Applying {len(config.boundary_conditions)} boundary conditions from the configuration...")
-  bc_nodes = create_bc_nodes_from_config(nodes, config.boundary_conditions, physical_groups)
+  bc_nodes = create_bc_nodes_from_config(nodes, config.boundary_conditions, physical_groups, physical_name_to_tag)
 
   nstate_elas = 2
   nstate_pf = 1

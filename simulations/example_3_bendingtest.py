@@ -9,25 +9,25 @@ CONFIG = SimulationConfig(
     name='Example 3: Bending Test',
     mesh_file='bendingtest.msh',
     mesh_type='gmsh',
-    material=MaterialParameters(E=20.8, nu=0.3, Gc=5.0e-4, l0=0.03, length=8.0, material_type='plane_stress'),
+    material=MaterialParameters(E=20.8, nu=0.3, Gc=5.0e-4, l0=0.03, material_type='plane_stress'),
     boundary_conditions=[
         BoundaryCondition(
             name='left_id',
-            node_filter=1,  # Gmsh tag (left_ids)
+            node_filter='Left_ids',  # Gmsh tag (left_ids)
             bc_type=0,  # Full clamp
             xval=0.0,
             yval=0.0
         ),
         BoundaryCondition(
             name='right_id',
-            node_filter=2,  # Gmsh tag (right_ids)
+            node_filter='Right_ids',  # Gmsh tag (right_ids)
             bc_type=2,  # Dirichlet in y
             xval=0.0,
             yval=0.0
         ),
         BoundaryCondition(
             name='top_id',
-            node_filter=3,  # Gmsh tag (top_ids)
+            node_filter='Top_ids',  # Gmsh tag (top_ids)
             bc_type=2,  # Displacement in y
             xval=0.0,
             yval=-0.08  # imposed_displacement_y

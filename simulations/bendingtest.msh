@@ -3,9 +3,9 @@ $MeshFormat
 $EndMeshFormat
 $PhysicalNames
 4
-0 1 "Apoio_Esquerdo"
-0 2 "Apoio_Direito"
-0 3 "Ponto_Carga"
+0 1 "Left_ids"
+0 2 "Right_ids"
+0 3 "Top_ids"
 2 4 "Dominio"
 $EndPhysicalNames
 $Entities

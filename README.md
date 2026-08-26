@@ -16,7 +16,7 @@ Phasefield-jr has been extended to use an L-BFGS solver with line search and is 
 
 A simplified version that assumes only tensile loads is available on the branch pure-tensile: [Pure-tensile branch on GitHub](https://github.com/nathanshauer/phasefield-jr-py/tree/pure-tensile). The preprint of the accompanying paper that also assumes only tensile loads is available at: [Link to paper preprint](https://www.researchgate.net/publication/392664425_Less_than_500_Lines_Self-Contained_Python_Finite_Element_Implementation_of_the_Phase-Field_Method_for_Fracture_Mechanics)
 
-> **Note:** the code has since evolved from the original phasefield-jr layout into a centralized simulation system (see below). The examples described in the accompanying papers correspond to the pre-configured simulations `example_1_simplebar`, `example_2_notchedplate`, `example_3_bendingtest` and `example_4_shear` described in this document.
+> **Note:** the code has since evolved from the original phasefield-jr layout into a centralized simulation system (see below). The examples described in the accompanying papers correspond to the pre-configured simulations `example_1_simplebar`, `example_2_notchedplate` and `example_3_bendingtest`. There is also an extra example, `example_4_shear`, described in this document.
 
 ## Configuration
 
@@ -76,7 +76,7 @@ All examples will generate output files in the `outputs` directory, which can be
 3. **`example_3_bendingtest`**: Simulates a 3-point bending test.
 4. **`example_4_shear`**: Simulates a notched plate under shear.
 
-### Adding a new simulation
+## Adding a new simulation
 
 Create a new file inside `simulations/` defining a `CONFIG` variable (a `SimulationConfig`) with the material parameters, boundary conditions, and solver settings you want; `config_simulations.py` does not need to be modified. You will also need to generate the `.msh` mesh file for your simulation using Gmsh and place it inside `simulations/`.
 ```python
@@ -91,12 +91,11 @@ CONFIG = SimulationConfig(
     mesh_file='my_mesh.msh',
     mesh_type='gmsh',
     material=MaterialParameters(
-        E=30.0, nu=0.2, Gc=1.2e-4, l0=10.0, length=200.0,
-        material_type='plane_stress'
+        E=30.0, nu=0.2, Gc=1.2e-4, l0=10.0, material_type='plane_stress'
     ),
     boundary_conditions=[
-        BoundaryCondition(name='base', node_filter=10, bc_type=0, xval=0.0, yval=0.0),
-        BoundaryCondition(name='top',  node_filter=20, bc_type=1, xval=0.04, yval=0.0),
+        BoundaryCondition(name='bottom', node_filter='bottom_ids', bc_type=0, xval=0.0, yval=0.0),
+        BoundaryCondition(name='top',  node_filter='top_ids', bc_type=1, xval=0.04, yval=0.0),
     ],
     simulation_params={
         'dt': 0.01,
@@ -108,6 +107,22 @@ CONFIG = SimulationConfig(
     },
     output_base='outputs/my_sim_',
     imposed_displacement=0.04,
+)
+```
+The new simulation will then be runnable with:
+
+```sh
+python phasefieldjr.py my_simulation
+```
+
+and will appear automatically when listing available simulations (`list_available_simulations()`).
+### Optional
+
+If you also want to generate a force-vs-displacement plot at the end of the run, add the optional `graph_config` and `reaction_config` fields:
+
+```python
+CONFIG = SimulationConfig(
+    ...,
     graph_config=GraphConfig(
         graph_type='force_vs_displacement',
         output_file='outputs/my_sim_force_vs_u.png',
@@ -123,13 +138,7 @@ CONFIG = SimulationConfig(
 )
 ```
 
-The new simulation will then be runnable with:
 
-```sh
-python phasefieldjr.py my_simulation
-```
-
-and will appear automatically when listing available simulations (`list_available_simulations()`).
 
 
 ## Utility Functions
@@ -148,7 +157,7 @@ if __name__ == "__main__":
     print(f"Simulation parameters of {config.name}:\n {config.simulation_params}")
 ```
 
-### Important implementation notes
+## Important implementation notes
 
 - **Only `mesh_type='gmsh'` is currently supported.** Any other value raises a `ValueError`.
 - **BC values scale with pseudo-time.** `applyBoundaryConditions()` multiplies `bc.xval`/`bc.yval` by `pseudotime` on every step, so the value in the config is effectively a *rate*, not a fixed target displacement.

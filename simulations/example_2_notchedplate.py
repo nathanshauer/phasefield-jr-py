@@ -9,25 +9,25 @@ CONFIG = SimulationConfig(
     name='Example 2: Notched Plate under tension',
     mesh_file='notchedplate.msh',
     mesh_type='gmsh',
-    material=MaterialParameters(E=210, nu=0.3, Gc=2.7e-3, l0=0.003, length=1.0, material_type='plane_strain'),
+    material=MaterialParameters(E=210, nu=0.3, Gc=2.7e-3, l0=0.003, material_type='plane_strain'),
     boundary_conditions=[
         BoundaryCondition(
             name='top_id',
-            node_filter=20,  # Gmsh tag (top_ids)
+            node_filter='Top_ids',  # Gmsh tag (top_ids)
             bc_type=2,  # Dirichlet in y only
             xval=0.0,
             yval=0.01  # imposed_displacement_y
         ),
         BoundaryCondition(
             name='bottom_id',
-            node_filter=10,  # Gmsh tag (bottom_ids)
+            node_filter='Bottom_ids',  # Gmsh tag (bottom_ids)
             bc_type=2,  # Dirichlet in y
             xval=0.0,
             yval=0.0
         ),
         BoundaryCondition(
             name='fixed_x_id',
-            node_filter=30,  # Gmsh tag (fixed_x_ids)
+            node_filter='Fixed_x',  # Gmsh tag (fixed_x_ids)
             bc_type=1,  # Dirichlet in x
             xval=0.0,
             yval=0.0

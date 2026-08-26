@@ -4,8 +4,8 @@ $EndMeshFormat
 $PhysicalNames
 4
 0 30 "Ponto_Referencia"
-1 10 "Base_Fixa"
-1 20 "Topo_Cisalhamento"
+1 10 "Bottom_ids"
+1 20 "Top_ids"
 2 40 "Dominio_Placa"
 $EndPhysicalNames
 $Entities
