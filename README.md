@@ -1,5 +1,5 @@
 # phasefield-jr-py
-### A branch for phasefield-jr based on a centralized simulation system
+### The develop branch for phasefield-jr based on a centralized simulation system
 ![3-point bending test deformation](figures/ex3.png)
 
 The phase field method is a powerful tool for fracture analysis. However, it introduces certain challenges that are not encountered in traditional finite element analysis. With this in mind, this code was developed for educational purposes, providing a self-contained implementation to help researchers familiarize themselves with the fundamentals of phase field analysis. It also serves as a reference for verifying their own code.
