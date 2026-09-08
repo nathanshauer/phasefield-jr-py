@@ -36,7 +36,7 @@ class MaterialParameters:
       
       return self.E / ((1 + self.nu) * (1 - 2 * self.nu))
     else:
-      # Padrão: estado plano de tensão
+      # Default: plane stress
       return self.E / (1 - self.nu * self.nu)
   
   def get_D_matrix(self):
@@ -137,7 +137,7 @@ WORKER_MAT = None
 
 
 def readGmshMesh(filename):
-    print(f"Reading the mesh {filename}...")
+    
     mesh = meshio.read(filename)
     
     nodes = []
@@ -178,18 +178,15 @@ def readGmshMesh(filename):
     # (e.g. Physical Curve("Left_ids") = {4};), so BCs in the config can use
     # the string name instead of having to know the numeric Gmsh tag.
     physical_name_to_tag = {}
-    for name, (tag, dim) in mesh.field_data.items():
-        physical_name_to_tag[name] = tag
+    for name, data in mesh.field_data.items():
+      physical_name_to_tag[name] = data[0]
 
     print(f"Mesh loaded: {len(nodes)} nodes and {len(elements)} elements.")
-    print(f"Physical Groups detected (Tags): {list(physical_groups.keys())}")
-    if physical_name_to_tag:
-        print(f"Physical Groups detected (Names -> Tags): {physical_name_to_tag}")
-
+       
     return nodes, elements, physical_groups, physical_name_to_tag
 
 
-def createSparseStructure(K, elements, nodes, nstate):
+def createSparseStructure(K, elements, nstate):
   for element in elements:
     for i in range(4):
       row = nstate * element.node_ids[i]
@@ -639,13 +636,13 @@ def main(config_name='default'):
   ndofs_elas = nstate_elas * nnodes
   ndofs_pf = nstate_pf * nnodes
   Kelas = sparse.lil_matrix((ndofs_elas, ndofs_elas))
-  createSparseStructure(Kelas, elements, nodes, nstate_elas)
+  createSparseStructure(Kelas, elements, nstate_elas)
   Felas = np.zeros(ndofs_elas)
   global Uelas
   Uelas = np.zeros(ndofs_elas)
 
   Kpf = sparse.lil_matrix((ndofs_pf, ndofs_pf))
-  createSparseStructure(Kpf, elements, nodes, nstate_pf)
+  createSparseStructure(Kpf, elements, nstate_pf)
   Fpf = np.zeros(ndofs_pf)  
   global Upf
   Upf = np.zeros(ndofs_pf)
