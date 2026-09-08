@@ -1,6 +1,6 @@
 # phasefield-jr-py
 ### The develop branch for phasefield-jr based on a centralized simulation system
-![3-point bending test deformation](figures/ex3.png)
+![3-point bending test deformation](figures/ex3-warp.png)
 
 The phase field method is a powerful tool for fracture analysis. However, it introduces certain challenges that are not encountered in traditional finite element analysis. With this in mind, this code was developed for educational purposes, providing a self-contained implementation to help researchers familiarize themselves with the fundamentals of phase field analysis. It also serves as a reference for verifying their own code.
 
@@ -94,8 +94,8 @@ CONFIG = SimulationConfig(
         E=30.0, nu=0.2, Gc=1.2e-4, l0=10.0, material_type='plane_stress'
     ),
     boundary_conditions=[
-        BoundaryCondition(name='bottom', node_filter='bottom_ids', bc_type=0, xval=0.0, yval=0.0),
-        BoundaryCondition(name='top',  node_filter='top_ids', bc_type=1, xval=0.04, yval=0.0),
+        BoundaryCondition(name='bottom', node_filter='Bottom_ids', bc_type=0, xval=0.0, yval=0.0),
+        BoundaryCondition(name='top',  node_filter='Top_ids', bc_type=1, xval=0.04, yval=0.0),
     ],
     simulation_params={
         'dt': 0.01,
@@ -131,12 +131,14 @@ CONFIG = SimulationConfig(
         displacement_axis='x',
     ),
     reaction_config=ReactionConfig(
-        reaction_type='bottom_ids_x',
+      reaction_type='Bottom_ids',
         reaction_dof=0,
         sign_factor=-1.0,
     ),
 )
 ```
+
+  In `ReactionConfig`, `reaction_type` should now match the physical-group name defined in the mesh, such as `Bottom_ids` or `supports` in the bending example. The solver still accepts a few legacy aliases for backward compatibility, but the named group is the preferred form.
 
 
 
@@ -161,7 +163,7 @@ if __name__ == "__main__":
 
 - **Only `mesh_type='gmsh'` is currently supported.** Any other value raises a `ValueError`.
 - **BC values scale with pseudo-time.** `applyBoundaryConditions()` multiplies `bc.xval`/`bc.yval` by `pseudotime` on every step, so the value in the config is effectively a *rate*, not a fixed target displacement.
-- **`readGmshMesh()` returns `(nodes, elements, physical_groups)`**, where `physical_groups` maps each Gmsh physical tag to a list of node IDs. Boundary conditions are attached to nodes either by referencing a Gmsh physical tag or, when needed, by geometric filtering.
+- **`readGmshMesh()` returns `(nodes, elements, physical_groups, physical_name_to_tag)`**, where `physical_groups` maps each Gmsh physical tag to a list of node IDs. Boundary conditions and reaction monitoring should prefer the physical-group names defined in the `.geo`/`.msh` file (for example `Left_ids`, `Right_ids`, `Top_ids`, `Bottom_ids`).
 - **Thread count is system-aware.** By default the solver reserves 2 CPU cores for the OS and uses the rest; this can be overridden per simulation via `'nthreads': N` in `simulation_params`.
 
 ## Output in Paraview using vtk files

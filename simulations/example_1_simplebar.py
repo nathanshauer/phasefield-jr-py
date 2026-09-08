@@ -13,14 +13,14 @@ CONFIG = SimulationConfig(
     boundary_conditions=[
         BoundaryCondition(
             name='left_id',
-            node_filter='Left_ids',  # Gmsh tag
+            node_filter='Left_ids',  # Gmsh physical group name
             bc_type=0,  # Dirichlet in x and y
             xval=0.0,
             yval=0.0
         ),
         BoundaryCondition(
             name='right_id',
-            node_filter='Right_ids',  # Gmsh tag
+            node_filter='Right_ids',  # Gmsh physical group name
             bc_type=1,  # Dirichlet in x only
             xval=0.08,  # u_peak_at2 (approximate)
             yval=0.0

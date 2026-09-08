@@ -13,14 +13,14 @@ CONFIG = SimulationConfig(
     boundary_conditions=[
         BoundaryCondition(
             name='top_id',
-            node_filter='Top_ids',  # Gmsh tag (top_ids)
+            node_filter='Top_ids',  # Gmsh physical group name
             bc_type=0,  # Dirichlet in x and y
             xval=0.04,  # imposed_displacement_x
             yval=0.0
         ),
         BoundaryCondition(
             name='bottom_id',
-            node_filter='Bottom_ids',  # Gmsh tag (bottom_ids)
+            node_filter='Bottom_ids',  # Gmsh physical group name
             bc_type=0,  # Full clamp
             xval=0.0,
             yval=0.0
@@ -44,7 +44,7 @@ CONFIG = SimulationConfig(
         displacement_axis='x',
     ),
     reaction_config=ReactionConfig(
-        reaction_type='bottom_ids_x',
+        reaction_type='Bottom_ids',
         reaction_dof=0,  # X direction
         sign_factor=-1.0,  # negative sign
     ),

@@ -114,14 +114,14 @@ def get_default_nthreads(reserve=2):
   Uses os.cpu_count(), which is portable (Linux/Windows/Mac) and reads the number
   of logical CPUs available directly from the operating system --
   equivalent to what 'lscpu' would show in "CPU(s)", but without depending
-  de um comando externo especifico do Linux nem de parsing de texto.
+  on a specific command or text parsing.
  
-  reserve: quantos nucleos deixar livres para o sistema/outras tarefas
-           (default = 1). Garante pelo menos 1 thread.
+  reserve: how many cores to leave free for the system/other tasks
+           (default = 2). Garante pelo menos 2 thread.
   """
   ncpus = os.cpu_count()
   if ncpus is None:
-    # Fallback caso o SO nao consiga informar (raro)
+    
     return 4
   return max(1, ncpus - reserve)
  
@@ -131,16 +131,13 @@ DEFAULT_NTHREADS = get_default_nthreads()
 # Worker-side shared state for process pool execution
 WORKER_NODES = None
 WORKER_MAT = None
-WORKER_UELAS = None
-WORKER_UPF = None
-WORKER_D = None
 
 # =============================== FUNCTION IMPLEMENTATIONS ======================
 # ===============================================================================
 
 
 def readGmshMesh(filename):
-    print(f"Readind the mesh {filename}...")
+    print(f"Reading the mesh {filename}...")
     mesh = meshio.read(filename)
     
     nodes = []
@@ -184,12 +181,6 @@ def readGmshMesh(filename):
     for name, (tag, dim) in mesh.field_data.items():
         physical_name_to_tag[name] = tag
 
-    # Also expose the groups keyed by name directly, for convenience.
-    physical_groups_by_name = {}
-    for name, tag in physical_name_to_tag.items():
-        if tag in physical_groups:
-            physical_groups_by_name[name] = physical_groups[tag]
-
     print(f"Mesh loaded: {len(nodes)} nodes and {len(elements)} elements.")
     print(f"Physical Groups detected (Tags): {list(physical_groups.keys())}")
     if physical_name_to_tag:
@@ -214,16 +205,13 @@ def splitElementsAmongThreads(elements, nthreads):
   chunk_size = max(1, (len(elements) + nthreads - 1) // nthreads)
   return [elements[i:i + chunk_size] for i in range(0, len(elements), chunk_size)]
 
-def initProcessWorker(nodes, mat, Uelas_data, Upf_data, D_mat):
-  global WORKER_NODES, WORKER_MAT, WORKER_UELAS, WORKER_UPF, WORKER_D
+def initProcessWorker(nodes, mat):
+  global WORKER_NODES, WORKER_MAT
   WORKER_NODES = nodes
   WORKER_MAT = mat
-  WORKER_UELAS = Uelas_data
-  WORKER_UPF = Upf_data
-  WORKER_D = D_mat
 
 
-def computeElementContribution(element, nodes, mat, nstate, Uelas_data, Upf_data, D_mat):
+def computeElementContribution(element, nodes, mat, nstate):
   nnodesel = len(element.node_ids)
   ndofel = nstate * nnodesel
   Ke = np.zeros((ndofel, ndofel))
@@ -236,7 +224,7 @@ def computeElementChunk(chunk_nstate):
   chunk, nstate = chunk_nstate
   local_updates = []
   for element in chunk:
-    local_updates.append(computeElementContribution(element, WORKER_NODES, WORKER_MAT, nstate, WORKER_UELAS, WORKER_UPF, WORKER_D))
+    local_updates.append(computeElementContribution(element, WORKER_NODES, WORKER_MAT, nstate))
   return local_updates
 
 def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate, nthreads=None):
@@ -256,10 +244,10 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate, nthreads=None):
   if nthreads < 2:
     local_updates = []
     for element in elements:
-      local_updates.append(computeElementContribution(element, nodes, mat, nstate, Uelas, Upf, D))
+      local_updates.append(computeElementContribution(element, nodes, mat, nstate))
     chunk_results = [local_updates]
   else:
-    with ProcessPoolExecutor(max_workers=nthreads, initializer=initProcessWorker, initargs=(nodes, mat, Uelas, Upf, D)) as executor:
+    with ProcessPoolExecutor(max_workers=nthreads, initializer=initProcessWorker, initargs=(nodes, mat)) as executor:
       chunk_results = list(executor.map(computeElementChunk, [(chunk, nstate) for chunk in element_chunks]))
 
   for local_updates in chunk_results:
@@ -538,6 +526,48 @@ def create_bc_nodes_from_config(nodes, boundary_conditions, physical_groups=None
       
   return bc_nodes
 
+
+def resolve_reaction_target_ids(physical_groups, physical_name_to_tag, reaction_config):
+  """Resolve target node IDs for reaction-force monitoring.
+
+  Preference order:
+  1. Exact physical-group name from the mesh (e.g. 'Bottom_ids').
+  2. Legacy aliases used by older configs (e.g. 'bottom_ids_y', 'supports_y').
+  """
+  if not reaction_config:
+    return []
+
+  reaction_type = (reaction_config.reaction_type or "").strip()
+  reaction_type_lower = reaction_type.lower()
+  name_lookup = {name.lower(): name for name in (physical_name_to_tag or {})}
+
+  def ids_for_name(group_name):
+    actual_name = name_lookup.get(group_name.lower())
+    if actual_name is None:
+      return []
+    tag = physical_name_to_tag[actual_name]
+    return physical_groups.get(tag, [])
+
+  base_name = reaction_type.rsplit("_", 1)[0] if reaction_type_lower.endswith(("_x", "_y")) else reaction_type
+  target_ids = ids_for_name(base_name)
+  if target_ids:
+    return target_ids
+
+  if "bottom" in reaction_type_lower:
+    return ids_for_name("Bottom_ids")
+  if "top" in reaction_type_lower:
+    return ids_for_name("Top_ids")
+  if "left" in reaction_type_lower:
+    return ids_for_name("Left_ids")
+  if "right" in reaction_type_lower:
+    return ids_for_name("Right_ids")
+  if "support" in reaction_type_lower:
+    target_ids = ids_for_name("Left_ids") + ids_for_name("Right_ids")
+    if target_ids:
+      return target_ids
+
+  return []
+
 # =============================== MAIN ==========================================
 # ===============================================================================
 
@@ -653,7 +683,7 @@ def main(config_name='default'):
     filename = f"{basefilename}{step}{vtkextension}"
     generateVTKLegacyFile(nodes, elements, filename)
 
-    # Colect data for graphs based on the configuration
+    # Collect data for graphs based on the configuration
     if config.graph_config:
       if config.graph_config.graph_type == 'stress_vs_time':
         
@@ -664,8 +694,8 @@ def main(config_name='default'):
           stress_data.append(sig[0] / sigma_peak_at2)
           time_data.append(pseudotime)
       elif config.graph_config.graph_type == 'force_vs_displacement':
-        
-        target_ids = physical_groups.get(10, [])  # Supondo que a base seja o grupo físico 10
+
+        target_ids = resolve_reaction_target_ids(physical_groups, physical_name_to_tag, config.reaction_config)
         dof_offset = 0
         sign_factor = -1.0
         
@@ -673,13 +703,7 @@ def main(config_name='default'):
             dof_offset = config.reaction_config.reaction_dof
             sign_factor = config.reaction_config.sign_factor
             
-            if 'bottom' in config.reaction_config.reaction_type:
-                target_ids = physical_groups.get(10, []) 
-            elif 'supports' in config.reaction_config.reaction_type:
-
-                target_ids = physical_groups.get(1, []) + physical_groups.get(2, [])
-            
-        # Colect reaction force data
+        # Collect reaction force data
         reaction = computeReaction(Kelas, Felas, nodes, elements, material, target_ids, dof_offset, sign_factor)
         force_data.append(reaction)
         

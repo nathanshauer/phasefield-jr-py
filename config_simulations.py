@@ -33,7 +33,7 @@ class BoundaryCondition:
         yval: displacement/force in y
     """
     name: str
-    node_filter: callable  # callable or int/str
+    node_filter: str  # callable or int/str
     bc_type: int
     xval: float
     yval: float
@@ -91,29 +91,7 @@ class SimulationConfig:
     imposed_displacement: float = 0.04
     mesh_generation_params: Optional[Dict[str, Any]] = None
 
-# ===============================================================================
-# =========================== NODE FILTER HELPERS ===============================
-# ===============================================================================
 
-# def is_left_edge(length: float) -> Any:
-#     """Returns a function that identifies nodes on the left edge"""
-#     return lambda node: abs(node.x) < 1e-8
-
-# def is_right_edge(length: float) -> Any:
-#     """Returns a function that identifies nodes on the right edge"""
-#     return lambda node: abs(node.x - length) < 1e-8
-
-# def is_bottom_edge(height: float) -> Any:
-#     """Returns a function that identifies nodes on the bottom edge"""
-#     return lambda node: abs(node.y) < 1e-8
-
-# def is_top_edge(height: float) -> Any:
-#     """Returns a function that identifies nodes on the top edge"""
-#     return lambda node: abs(node.y - height) < 1e-8
-
-# def is_bottom_left_corner(length: float, height: float) -> Any:
-#     """Returns a function that identifies node on the bottom left corner"""
-#     return lambda node: (abs(node.x) < 1e-8 and abs(node.y) < 1e-8)
 
 # ===============================================================================
 # =================================== PATHS =====================================

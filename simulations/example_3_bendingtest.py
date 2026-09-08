@@ -13,21 +13,21 @@ CONFIG = SimulationConfig(
     boundary_conditions=[
         BoundaryCondition(
             name='left_id',
-            node_filter='Left_ids',  # Gmsh tag (left_ids)
+            node_filter='Left_ids',  # Gmsh physical group name
             bc_type=0,  # Full clamp
             xval=0.0,
             yval=0.0
         ),
         BoundaryCondition(
             name='right_id',
-            node_filter='Right_ids',  # Gmsh tag (right_ids)
+            node_filter='Right_ids',  # Gmsh physical group name
             bc_type=2,  # Dirichlet in y
             xval=0.0,
             yval=0.0
         ),
         BoundaryCondition(
             name='top_id',
-            node_filter='Top_ids',  # Gmsh tag (top_ids)
+            node_filter='Top_ids',  # Gmsh physical group name
             bc_type=2,  # Displacement in y
             xval=0.0,
             yval=-0.08  # imposed_displacement_y
@@ -51,7 +51,7 @@ CONFIG = SimulationConfig(
         displacement_axis='y',
     ),
     reaction_config=ReactionConfig(
-        reaction_type='supports_y',
+        reaction_type='supports',
         reaction_dof=1,  # Y direction
         sign_factor=1.0,  # positive sign
         support_coords=(-4.0, 0.0),  # left and right supports at y=0
