@@ -202,10 +202,17 @@ def splitElementsAmongThreads(elements, nthreads):
   chunk_size = max(1, (len(elements) + nthreads - 1) // nthreads)
   return [elements[i:i + chunk_size] for i in range(0, len(elements), chunk_size)]
 
-def initProcessWorker(nodes, mat):
+
+def initProcessWorker(nodes, mat, upf, uelas, d, aligned_mesh):
   global WORKER_NODES, WORKER_MAT
+  global Upf, Uelas, D, isAlignedMesh
+
   WORKER_NODES = nodes
   WORKER_MAT = mat
+  Upf = upf
+  Uelas = uelas
+  D = d
+  isAlignedMesh = aligned_mesh
 
 
 def computeElementContribution(element, nodes, mat, nstate):
@@ -244,7 +251,11 @@ def assembleGlobalStiffness(K, F, elements, nodes, mat, nstate, nthreads=None):
       local_updates.append(computeElementContribution(element, nodes, mat, nstate))
     chunk_results = [local_updates]
   else:
-    with ProcessPoolExecutor(max_workers=nthreads, initializer=initProcessWorker, initargs=(nodes, mat)) as executor:
+    with ProcessPoolExecutor(
+    max_workers=nthreads,
+    initializer=initProcessWorker,
+    initargs=(nodes, mat, Upf, Uelas, D, isAlignedMesh)
+) as executor:
       chunk_results = list(executor.map(computeElementChunk, [(chunk, nstate) for chunk in element_chunks]))
 
   for local_updates in chunk_results:
