@@ -3,13 +3,19 @@
 # phasefield-jr
 # Simulation: Notched Plate under Tension
 
+"""
+This file defines a single simulation configuration in the module-level
+variable CONFIG. config_simulations.get_simulation_config('example_2_notchedplate')
+loads exactly this file (and no other) at runtime.
+"""
+
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig, ReactionConfig
 
 CONFIG = SimulationConfig(
     name='Example 2: Notched Plate under tension',
-    mesh_file='notchedplate.msh',
+    mesh_file='../GmshFiles/notchedplate.msh',
     mesh_type='gmsh',
-    material=MaterialParameters(E=210, nu=0.3, Gc=2.7e-3, l0=0.003, material_type='plane_strain'),
+    material=MaterialParameters(E1=210, E2=210, nu12=0.3, G12=80.76, Gc1=2.7e-3, Gc2=2.7e-3,theta=0.0, l0=0.003, length=1.0, material_type='plane_strain'),
     boundary_conditions=[
         BoundaryCondition(
             name='top_id',
@@ -27,7 +33,7 @@ CONFIG = SimulationConfig(
         ),
         BoundaryCondition(
             name='fixed_x_id',
-            node_filter='Fixed_x',  # Gmsh physical group name
+            node_filter='Fixed_x_ids',  # Gmsh physical group name
             bc_type=1,  # Dirichlet in x
             xval=0.0,
             yval=0.0
@@ -51,7 +57,7 @@ CONFIG = SimulationConfig(
         displacement_axis='y',
     ),
     reaction_config=ReactionConfig(
-        reaction_type='Bottom_ids',
+        reaction_type='bottom_ids_y',
         reaction_dof=1,  # Y direction
         sign_factor=-1.0,  # negative sign
     ),

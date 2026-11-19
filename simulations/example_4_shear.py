@@ -3,13 +3,19 @@
 # phasefield-jr
 # Simulation: Simple Shear Test
 
+"""
+This file defines a single simulation configuration in the module-level
+variable CONFIG. config_simulations.get_simulation_config('example_4_shear')
+loads exactly this file (and no other) at runtime.
+"""
+
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig, ReactionConfig
 
 CONFIG = SimulationConfig(
     name='Example 4: Shear Test',
     mesh_file='shear.msh',
     mesh_type='gmsh',
-    material=MaterialParameters(E=210, nu=0.3, Gc=2.7e-3, l0=0.003, material_type='plane_strain'),
+    material=MaterialParameters(E1=210, E2=210, nu12=0.3, G12=80.76, Gc1=2.7e-3, Gc2=2.7e-3,theta=0.0, l0=0.003, length=1.0, material_type='plane_strain'),
     boundary_conditions=[
         BoundaryCondition(
             name='top_id',
@@ -44,7 +50,7 @@ CONFIG = SimulationConfig(
         displacement_axis='x',
     ),
     reaction_config=ReactionConfig(
-        reaction_type='Bottom_ids',
+        reaction_type='bottom_ids_x',
         reaction_dof=0,  # X direction
         sign_factor=-1.0,  # negative sign
     ),

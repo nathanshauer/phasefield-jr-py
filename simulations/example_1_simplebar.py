@@ -3,13 +3,19 @@
 # phasefield-jr
 # Simulation: Simple Bar under Tension
 
+"""
+This file defines a single simulation configuration in the module-level
+variable CONFIG. config_simulations.get_simulation_config('example_1_simplebar')
+loads exactly this file (and no other) at runtime.
+"""
+
 from config_simulations import SimulationConfig, MaterialParameters, BoundaryCondition, GraphConfig
 
 CONFIG = SimulationConfig(
-    name='Example 1: Simple Bar under tension',
+    name='Example 1: Simple Bar under Tension (simplebar.py)',
     mesh_file='simplebar.msh',
     mesh_type='gmsh',
-    material=MaterialParameters(E=30, nu=0.2, Gc=1.2e-4, l0=10.0, length=200.0, material_type='plane_stress'),
+    material=MaterialParameters(E1=30, E2=30, nu12=0.2, G12=12.5, Gc1=1.2e-4, Gc2=1.2e-4,theta=0.0, l0=10.0, length=200.0, material_type='plane_stress'),
     boundary_conditions=[
         BoundaryCondition(
             name='left_id',
@@ -30,7 +36,7 @@ CONFIG = SimulationConfig(
         'dt': 0.01,
         'totaltime': 1.5,
         'maxsteps': int(1e5),
-        'maxiter': 500,
+        'maxiter': 600,
         'stagtol': 1e-4,
     },
     output_base='outputs/ex1_simplebar',
